@@ -1,5 +1,5 @@
-import { connectDb } from '../lib/db.js';
-import Task from '../lib/Task.js';
+const { connectDb } = require('../lib/db');
+const Task = require('../lib/Task');
 
 function setCorsHeaders(res) {
   res.setHeader('Access-Control-Allow-Credentials', 'true');
@@ -62,7 +62,7 @@ const buildUpdateChanges = (currentTask, updates) => AUDIT_FIELDS
   })
   .filter(({ from, to }) => !areEqual(from, to));
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   setCorsHeaders(res);
 
   if (req.method === 'OPTIONS') {
@@ -171,4 +171,4 @@ export default async function handler(req, res) {
     console.error('API error:', error.message);
     return res.status(500).json({ message: 'Failed to process request', error: error.message });
   }
-}
+};
