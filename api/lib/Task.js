@@ -87,6 +87,7 @@ const taskSchema = new mongoose.Schema(
     },
   },
   {
+    bufferCommands: false,
     timestamps: true,
   }
 );

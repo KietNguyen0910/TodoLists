@@ -1,25 +1,36 @@
 const mongoose = require('mongoose');
 
-const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/todoapp';
+const MONGO_URI = process.env.MONGO_URI;
 
-let cachedConnection = null;
+let cached = global.mongooseConnection;
+
+if (!cached) {
+  cached = global.mongooseConnection = { conn: null, promise: null };
+}
 
 async function connectDb() {
-  if (cachedConnection) {
-    return cachedConnection;
+  if (!MONGO_URI) {
+    throw new Error('Missing MONGO_URI environment variable. Add it in Vercel Project Settings > Environment Variables.');
+  }
+
+  if (cached.conn && mongoose.connection.readyState === 1) {
+    return cached.conn;
+  }
+
+  if (!cached.promise) {
+    cached.promise = mongoose.connect(MONGO_URI, {
+      bufferCommands: false,
+      serverSelectionTimeoutMS: 10000,
+      connectTimeoutMS: 10000,
+    });
   }
 
   try {
-    const conn = await mongoose.connect(MONGO_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-      serverSelectionTimeoutMS: 5000,
-    });
-
-    cachedConnection = conn;
+    cached.conn = await cached.promise;
     console.log('MongoDB connected');
-    return conn;
+    return cached.conn;
   } catch (error) {
+    cached.promise = null;
     console.error('MongoDB connection error:', error.message);
     throw error;
   }
