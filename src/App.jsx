@@ -202,6 +202,27 @@ export default function App() {
     showToast('Logged out. Continuing as Guest.');
   };
 
+  const requireLogin = (action) => {
+    if (isAuthenticated) return true;
+
+    setLoginError('');
+    setIsLoginModalOpen(true);
+    showToast(`Please login to ${action}.`);
+    return false;
+  };
+
+  const handleRequestError = (requestError, fallbackMessage) => {
+    if (requestError?.status === 401) {
+      setAuth(null);
+      setLoginError('');
+      setIsLoginModalOpen(true);
+      showToast('Session expired. Please login again.');
+      return;
+    }
+
+    setError(fallbackMessage);
+  };
+
   const markNotificationsRead = () => {
     if (notifications.length === 0) return;
 
@@ -238,6 +259,8 @@ export default function App() {
   }, [activeTabId, isReportTab, pendingScrollTaskId, visibleTasks]);
 
   const handleTaskSubmit = async (taskData) => {
+    if (!requireLogin(editingTask ? 'update tasks' : 'add tasks')) return;
+
     setIsSubmittingTask(true);
     try {
       if (editingTask) {
@@ -254,21 +277,23 @@ export default function App() {
         await loadTasks();
       }
       closeTaskModal();
-    } catch {
-      setError(editingTask ? 'Unable to update task.' : 'Unable to create task.');
+    } catch (requestError) {
+      handleRequestError(requestError, editingTask ? 'Unable to update task.' : 'Unable to create task.');
     } finally {
       setIsSubmittingTask(false);
     }
   };
 
   const handleStatusChange = async (taskId, status) => {
+    if (!requireLogin('change task status')) return;
+
     setUpdatingStatusTaskId(taskId);
     try {
       await updateTask(taskId, { status });
       if (status === 'Lodged/Completed') showToast('Task status updated to Lodged/Completed.');
       await loadTasks();
-    } catch {
-      setError('Unable to update task.');
+    } catch (requestError) {
+      handleRequestError(requestError, 'Unable to update task.');
     } finally {
       setUpdatingStatusTaskId(null);
     }
@@ -276,13 +301,18 @@ export default function App() {
 
   const confirmDelete = async () => {
     if (!taskToDelete) return;
+    if (!requireLogin('delete tasks')) {
+      setTaskToDelete(null);
+      return;
+    }
+
     setIsDeletingTask(true);
     try {
       await updateTask(taskToDelete.id, { deleted: true });
       showToast('Task deleted successfully.');
       await loadTasks();
-    } catch {
-      setError('Unable to delete task.');
+    } catch (requestError) {
+      handleRequestError(requestError, 'Unable to delete task.');
     } finally {
       setIsDeletingTask(false);
       setTaskToDelete(null);
@@ -301,7 +331,7 @@ export default function App() {
           ) : (
             <button className="button-secondary auth-button" type="button" onClick={() => { setLoginError(''); setIsLoginModalOpen(true); }}>Login</button>
           )}
-          <button className="button-primary" type="button" onClick={() => { setEditingTask(null); setIsModalOpen(true); }}>Add Task</button>
+          <button className="button-primary" type="button" onClick={() => { if (!requireLogin('add tasks')) return; setEditingTask(null); setIsModalOpen(true); }}>Add Task</button>
         </div>
       </header>
       <div className="main-layout">
@@ -313,7 +343,7 @@ export default function App() {
           ) : (
             <>
               <div className="content-header"><h2>{activeTab.title}</h2><span className="task-count">({visibleTasks.length})</span></div>
-              {loading ? <p className="empty">Loading tasks...</p> : <div className="task-list">{visibleTasks.length === 0 ? <p className="empty">No tasks found.</p> : <table className={`task-table ${showCompletionTime ? 'has-completion-time' : ''}`}><thead><tr><th>No</th><th>Assign Date</th><th>Software</th><th>Client</th><th>Task</th><th>Outcome Achieved</th><th>Note</th><th className="payroll-column">Payroll</th>{showCompletionTime && <th>Completion Date</th>}<th className="task-status-column">Status</th></tr></thead><tbody>{visibleTasks.map((task, index) => <TaskCard key={task._id} taskRef={(element) => { taskRefs.current[task._id] = element; }} index={index + 1} task={task} statusMap={STATUS_MAP} onStatusChange={handleStatusChange} onDelete={(id, title) => setTaskToDelete({ id, title })} onEdit={(task) => { setEditingTask(task); setIsModalOpen(true); }} onViewHistory={setHistoryTask} showCompletionTime={showCompletionTime} isStatusUpdating={updatingStatusTaskId === task._id} isHighlighted={highlightedTaskId === task._id} />)}</tbody></table>}</div>}
+              {loading ? <p className="empty">Loading tasks...</p> : <div className="task-list">{visibleTasks.length === 0 ? <p className="empty">No tasks found.</p> : <table className={`task-table ${showCompletionTime ? 'has-completion-time' : ''}`}><thead><tr><th>No</th><th>Assign Date</th><th>Software</th><th>Client</th><th>Task</th><th>Outcome Achieved</th><th>Note</th><th className="payroll-column">Payroll</th>{showCompletionTime && <th>Completion Date</th>}<th className="task-status-column">Status</th></tr></thead><tbody>{visibleTasks.map((task, index) => <TaskCard key={task._id} taskRef={(element) => { taskRefs.current[task._id] = element; }} index={index + 1} task={task} statusMap={STATUS_MAP} onStatusChange={handleStatusChange} onDelete={(id, title) => setTaskToDelete({ id, title })} onEdit={(task) => { if (!requireLogin('edit tasks')) return; setEditingTask(task); setIsModalOpen(true); }} onViewHistory={setHistoryTask} onRequireLogin={requireLogin} showCompletionTime={showCompletionTime} isStatusUpdating={updatingStatusTaskId === task._id} isHighlighted={highlightedTaskId === task._id} isReadOnly={!isAuthenticated} />)}</tbody></table>}</div>}
             </>
           )}
         </section>

@@ -1,6 +1,6 @@
 const { connectDb } = require('../lib/db');
 const Task = require('../lib/Task');
-const { getAuthUser } = require('../lib/auth');
+const { requireAuth } = require('../lib/auth');
 
 function setCorsHeaders(res) {
   res.setHeader('Access-Control-Allow-Credentials', 'true');
@@ -81,7 +81,10 @@ module.exports = async function handler(req, res) {
     }
 
     if (req.method === 'POST') {
-      const actor = getAuthUser(req)?.label || 'Guest';
+      const authUser = requireAuth(req, res);
+      if (!authUser) return;
+
+      const actor = authUser.label || 'User';
       const { title, description, software, payroll, outcomeAchieved, assignDate, deadline, notes, status } = req.body;
       const VALID_STATUSES = [
         'Lodged/Completed',

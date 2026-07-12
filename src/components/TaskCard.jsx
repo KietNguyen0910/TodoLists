@@ -46,6 +46,7 @@ export default function TaskCard({
   onDelete,
   onEdit,
   onViewHistory,
+  onRequireLogin,
   showCompletionTime = false,
   isStatusUpdating = false,
   isHighlighted = false,
@@ -56,10 +57,29 @@ export default function TaskCard({
     ? task.outcomeAchieved
     : task.outcomeAchieved ? [task.outcomeAchieved] : [];
   const outcomeProgress = getOutcomeProgress(outcomes);
+  const handleProtectedAction = (action, callback) => {
+    if (isReadOnly) {
+      onRequireLogin?.(action);
+      return;
+    }
+
+    callback();
+  };
   const handleRowDoubleClick = (event) => {
     if (event.target.closest('button, select, input, textarea, a')) return;
-    if (isReadOnly) return;
-    onEdit(task);
+    handleProtectedAction('edit tasks', () => onEdit(task));
+  };
+  const handleStatusMouseDown = (event) => {
+    if (!isReadOnly) return;
+
+    event.preventDefault();
+    onRequireLogin?.('change task status');
+  };
+  const handleStatusKeyDown = (event) => {
+    if (!isReadOnly || !['Enter', ' '].includes(event.key)) return;
+
+    event.preventDefault();
+    onRequireLogin?.('change task status');
   };
 
   return (
@@ -79,8 +99,11 @@ export default function TaskCard({
             className="font-semibold status-tag"
             value={task.status}
             aria-label={`Status for ${task.title || 'task'}`}
-            disabled={isStatusUpdating || isReadOnly}
-            onChange={(event) => onStatusChange(task._id, event.target.value)}
+            aria-disabled={isReadOnly}
+            disabled={isStatusUpdating}
+            onMouseDown={handleStatusMouseDown}
+            onKeyDown={handleStatusKeyDown}
+            onChange={(event) => handleProtectedAction('change task status', () => onStatusChange(task._id, event.target.value))}
             style={{
               background: statusConfig.color,
               borderColor: task.status === 'Lodged/Completed' ? '#f0f0f0' : statusConfig.color,
@@ -95,8 +118,8 @@ export default function TaskCard({
           </select>
           <div className="task-edit">
             <button className="delete-button" type="button" aria-label={`View history for ${task.title || 'task'}`} onClick={() => onViewHistory(task)}>&#128065;</button>
-            <button className="delete-button" type="button" aria-label={`Edit ${task.title || 'task'}`} disabled={isReadOnly} onClick={() => onEdit(task)}>&#9998;</button>
-            <button className="delete-button" type="button" aria-label={`Delete ${task.title || 'task'}`} disabled={isReadOnly} onClick={() => onDelete(task._id, task.title)}>&times;</button>
+            <button className="delete-button" type="button" aria-disabled={isReadOnly} aria-label={`Edit ${task.title || 'task'}`} onClick={() => handleProtectedAction('edit tasks', () => onEdit(task))}>&#9998;</button>
+            <button className="delete-button" type="button" aria-disabled={isReadOnly} aria-label={`Delete ${task.title || 'task'}`} onClick={() => handleProtectedAction('delete tasks', () => onDelete(task._id, task.title))}>&times;</button>
           </div>
         </div>
       </td>

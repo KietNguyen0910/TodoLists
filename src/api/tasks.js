@@ -34,7 +34,11 @@ async function request(path = '', options = {}) {
 
   if (!response.ok) {
     const data = await response.json().catch(() => ({}));
-    throw new Error(data.message || 'The request could not be completed.');
+    if (response.status === 401) clearStoredAuth();
+
+    const error = new Error(data.message || 'The request could not be completed.');
+    error.status = response.status;
+    throw error;
   }
 
   return response.status === 204 ? null : response.json();

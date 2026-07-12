@@ -2,7 +2,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const Task = require('../models/Task');
 const taskStore = require('../taskStore');
-const { getAuthUser } = require('../auth');
+const { requireAuth } = require('../auth');
 
 const router = express.Router();
 
@@ -100,9 +100,9 @@ router.get('/', async (req, res) => {
   }
 });
 
-router.post('/', async (req, res) => {
+router.post('/', requireAuth, async (req, res) => {
   try {
-    const actor = getAuthUser(req)?.label || 'Guest';
+    const actor = req.authUser?.label || 'User';
     const { title, description, software, payroll, outcomeAchieved, assignDate, deadline, notes, status } = req.body;
 
     if (!title || !title.trim()) {
@@ -138,9 +138,9 @@ router.post('/', async (req, res) => {
   }
 });
 
-router.patch('/:id', async (req, res) => {
+router.patch('/:id', requireAuth, async (req, res) => {
   try {
-    const actor = getAuthUser(req)?.label || 'Guest';
+    const actor = req.authUser?.label || 'User';
     const { title, description, software, payroll, outcomeAchieved, assignDate, deadline, notes, status, deleted } = req.body;
     const updates = {};
 
@@ -214,7 +214,7 @@ router.patch('/:id', async (req, res) => {
   }
 });
 
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', requireAuth, async (req, res) => {
   try {
     if (!isMongoConnected()) {
       const task = taskStore.deleteTask(req.params.id);
