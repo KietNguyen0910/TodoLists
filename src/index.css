@@ -305,6 +305,40 @@ select:disabled {
   box-shadow: 0 30px 80px rgba(15, 23, 42, 0.2);
 }
 
+.login-modal-card {
+  width: min(460px, calc(100% - 32px));
+}
+
+.password-input-wrap {
+  position: relative;
+  display: block;
+}
+
+.modal-form .password-input-wrap input {
+  padding-right: 52px;
+}
+
+.password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  transform: translateY(-50%);
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 10px;
+  background: #f1f5f9;
+  cursor: pointer;
+  font-size: 1rem;
+}
+
+.password-toggle:hover:not(:disabled) {
+  background: #e2e8f0;
+}
+
 .modal-header {
   display: flex;
   justify-content: space-between;
@@ -579,6 +613,10 @@ select:disabled {
 
 .button-secondary:hover {
   background: #f1f5f9;
+}
+
+.auth-button {
+  white-space: nowrap;
 }
 
 .button-danger {

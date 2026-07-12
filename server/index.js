@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
 const taskRoutes = require('./routes/tasks');
+const { login } = require('./auth');
 require('dotenv').config();
 
 const app = express();
@@ -15,6 +16,7 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' });
 });
 
+app.post('/api/auth/login', login);
 app.use('/api/tasks', taskRoutes);
 
 const startServer = async () => {

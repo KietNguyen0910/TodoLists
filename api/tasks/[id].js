@@ -1,5 +1,6 @@
 const { connectDb } = require('../lib/db');
 const Task = require('../lib/Task');
+const { getAuthUser } = require('../lib/auth');
 
 function setCorsHeaders(res) {
   res.setHeader('Access-Control-Allow-Credentials', 'true');
@@ -7,7 +8,7 @@ function setCorsHeaders(res) {
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
   res.setHeader(
     'Access-Control-Allow-Headers',
-    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
+    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization'
   );
 }
 
@@ -48,9 +49,9 @@ const AUDIT_FIELDS = [
 
 const areEqual = (left, right) => JSON.stringify(left) === JSON.stringify(right);
 
-const createAuditLog = (action, changes) => ({
+const createAuditLog = (action, changes, actor = 'User') => ({
   action,
-  actor: 'User',
+  actor,
   changedAt: new Date(),
   changes,
 });
@@ -79,6 +80,7 @@ module.exports = async function handler(req, res) {
     await connectDb();
 
     if (req.method === 'PATCH') {
+      const actor = getAuthUser(req)?.label || 'Guest';
       const { title, description, software, payroll, outcomeAchieved, assignDate, deadline, notes, status, deleted } = req.body;
       const VALID_STATUSES = [
         'Lodged/Completed',
@@ -150,7 +152,7 @@ module.exports = async function handler(req, res) {
       if (updateChanges.length > 0) {
         updates.auditLogs = [
           ...(existingTask.auditLogs || []),
-          createAuditLog(updates.deleted === true ? 'deleted' : 'updated', updateChanges),
+          createAuditLog(updates.deleted === true ? 'deleted' : 'updated', updateChanges, actor),
         ];
       }
 

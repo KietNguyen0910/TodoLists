@@ -1,5 +1,6 @@
 const { connectDb } = require('../lib/db');
 const Task = require('../lib/Task');
+const { getAuthUser } = require('../lib/auth');
 
 function setCorsHeaders(res) {
   res.setHeader('Access-Control-Allow-Credentials', 'true');
@@ -7,7 +8,7 @@ function setCorsHeaders(res) {
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
   res.setHeader(
     'Access-Control-Allow-Headers',
-    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
+    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization'
   );
 }
 
@@ -47,9 +48,9 @@ const AUDIT_FIELDS = [
 
 const hasValue = (value) => (Array.isArray(value) ? value.length > 0 : value !== '' && value !== null && value !== undefined);
 
-const createAuditLog = (action, changes) => ({
+const createAuditLog = (action, changes, actor = 'User') => ({
   action,
-  actor: 'User',
+  actor,
   changedAt: new Date(),
   changes,
 });
@@ -80,6 +81,7 @@ module.exports = async function handler(req, res) {
     }
 
     if (req.method === 'POST') {
+      const actor = getAuthUser(req)?.label || 'Guest';
       const { title, description, software, payroll, outcomeAchieved, assignDate, deadline, notes, status } = req.body;
       const VALID_STATUSES = [
         'Lodged/Completed',
@@ -109,9 +111,9 @@ module.exports = async function handler(req, res) {
         notes: notes || '',
         status: normalizedStatus,
         completionDate: normalizedStatus === 'Lodged/Completed' ? new Date() : null,
-        statusHistory: [{ status: normalizedStatus }],
+        statusHistory: [{ status: normalizedStatus, changedAt: new Date() }],
       };
-      taskPayload.auditLogs = [createAuditLog('created', buildCreateChanges(taskPayload))];
+      taskPayload.auditLogs = [createAuditLog('created', buildCreateChanges(taskPayload), actor)];
 
       const task = await Task.create(taskPayload);
 

@@ -37,7 +37,7 @@ git push -u origin main
    - **Output Directory**: `build`
 5. Add environment variable:
    - **Name**: `MONGO_URI`
-   - **Value**: `mongodb+srv://kietngynit_db_user:Vukiet091001@cluster0.32ggn3e.mongodb.net/todoapp?appName=Cluster0`
+   - **Value**: `mongodb+srv://<username>:<password>@<cluster>/<database>?retryWrites=true&w=majority`
 6. Click "Deploy"
 
 ### Step 4: Update MongoDB Atlas Security
@@ -113,7 +113,11 @@ npm run dev
 
 ### Local Development (`.env`)
 ```
-MONGO_URI=mongodb+srv://kietngynit_db_user:Vukiet091001@cluster0.32ggn3e.mongodb.net/todoapp?appName=Cluster0
+MONGO_URI=mongodb+srv://<username>:<password>@<cluster>/<database>?retryWrites=true&w=majority
+AUTH_USERNAME=admin
+AUTH_PASSWORD=change-me
+AUTH_TOKEN=replace-with-a-long-random-token
+AUTH_USER_LABEL=Cassie
 ```
 
 ### Vercel Dashboard

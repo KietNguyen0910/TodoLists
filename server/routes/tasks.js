@@ -2,6 +2,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const Task = require('../models/Task');
 const taskStore = require('../taskStore');
+const { getAuthUser } = require('../auth');
 
 const router = express.Router();
 
@@ -41,9 +42,9 @@ const hasValue = (value) => (Array.isArray(value) ? value.length > 0 : value !==
 
 const areEqual = (left, right) => JSON.stringify(left) === JSON.stringify(right);
 
-const createAuditLog = (action, changes) => ({
+const createAuditLog = (action, changes, actor = 'User') => ({
   action,
-  actor: 'User',
+  actor,
   changedAt: new Date(),
   changes,
 });
@@ -101,6 +102,7 @@ router.get('/', async (req, res) => {
 
 router.post('/', async (req, res) => {
   try {
+    const actor = getAuthUser(req)?.label || 'Guest';
     const { title, description, software, payroll, outcomeAchieved, assignDate, deadline, notes, status } = req.body;
 
     if (!title || !title.trim()) {
@@ -121,7 +123,7 @@ router.post('/', async (req, res) => {
       completionDate: normalizedStatus === 'Lodged/Completed' ? new Date() : null,
       statusHistory: [{ status: normalizedStatus, changedAt: new Date() }],
     };
-    taskPayload.auditLogs = [createAuditLog('created', buildCreateChanges(taskPayload))];
+    taskPayload.auditLogs = [createAuditLog('created', buildCreateChanges(taskPayload), actor)];
 
     if (!isMongoConnected()) {
       const task = taskStore.createTask(taskPayload);
@@ -138,6 +140,7 @@ router.post('/', async (req, res) => {
 
 router.patch('/:id', async (req, res) => {
   try {
+    const actor = getAuthUser(req)?.label || 'Guest';
     const { title, description, software, payroll, outcomeAchieved, assignDate, deadline, notes, status, deleted } = req.body;
     const updates = {};
 
@@ -176,7 +179,7 @@ router.patch('/:id', async (req, res) => {
     }
 
     if (!isMongoConnected()) {
-      const task = taskStore.updateTask(req.params.id, updates);
+      const task = taskStore.updateTask(req.params.id, updates, actor);
       if (!task) {
         return res.status(404).json({ message: 'Task not found' });
       }
@@ -192,7 +195,7 @@ router.patch('/:id', async (req, res) => {
     if (updateChanges.length > 0) {
       updates.auditLogs = [
         ...(existingTask.auditLogs || []),
-        createAuditLog(updates.deleted === true ? 'deleted' : 'updated', updateChanges),
+        createAuditLog(updates.deleted === true ? 'deleted' : 'updated', updateChanges, actor),
       ];
     }
 

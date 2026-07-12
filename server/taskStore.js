@@ -51,10 +51,10 @@ const AUDIT_FIELDS = [
 
 const areEqual = (left, right) => JSON.stringify(left) === JSON.stringify(right);
 
-function createAuditLog(action, changes) {
+function createAuditLog(action, changes, actor = 'User') {
   return {
     action,
-    actor: 'User',
+    actor,
     changedAt: new Date(),
     changes,
   };
@@ -128,7 +128,7 @@ function createTask({ title, description, software, payroll, outcomeAchieved, as
   return serializeTask(task);
 }
 
-function updateTask(id, updates) {
+function updateTask(id, updates, actor = 'User') {
   const index = memoryTasks.findIndex((task) => task._id === id);
   if (index === -1) return null;
 
@@ -149,7 +149,7 @@ function updateTask(id, updates) {
   if (updateChanges.length > 0) {
     updates.auditLogs = [
       ...(current.auditLogs || []),
-      createAuditLog(updates.deleted === true ? 'deleted' : 'updated', updateChanges),
+      createAuditLog(updates.deleted === true ? 'deleted' : 'updated', updateChanges, actor),
     ];
   }
 

@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { createTask, getTasks, updateTask } from './api/tasks';
+import { clearStoredAuth, createTask, getStoredAuth, getTasks, login, updateTask } from './api/tasks';
 import DeleteConfirmModal from './components/DeleteConfirmModal';
 import GlobalSearch from './components/GlobalSearch';
+import LoginModal from './components/LoginModal';
 import NotificationBell from './components/NotificationBell';
 import ReportView from './components/ReportView';
 import TaskCard from './components/TaskCard';
@@ -109,15 +110,19 @@ export default function App() {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isSubmittingTask, setIsSubmittingTask] = useState(false);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [isDeletingTask, setIsDeletingTask] = useState(false);
   const [updatingStatusTaskId, setUpdatingStatusTaskId] = useState(null);
   const [error, setError] = useState('');
   const [activeTabId, setActiveTabId] = useState(getInitialTabId);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
   const [historyTask, setHistoryTask] = useState(null);
   const [taskToDelete, setTaskToDelete] = useState(null);
   const [toastMessage, setToastMessage] = useState('');
+  const [auth, setAuth] = useState(getStoredAuth);
+  const [loginError, setLoginError] = useState('');
   const [readNotificationIds, setReadNotificationIds] = useState(loadReadNotificationIds);
   const [pendingScrollTaskId, setPendingScrollTaskId] = useState(null);
   const [highlightedTaskId, setHighlightedTaskId] = useState(null);
@@ -169,10 +174,32 @@ export default function App() {
   );
   const searchableTasks = tasks.filter(isActiveTask).filter((task) => getTaskTabId(task.status));
   const getCount = (tab) => tasks.filter(isActiveTask).filter((task) => tab.statuses.includes(task.status)).length;
+  const isAuthenticated = Boolean(auth?.token);
 
   const closeTaskModal = () => {
     setIsModalOpen(false);
     setEditingTask(null);
+  };
+
+  const handleLogin = async (username, password) => {
+    setIsLoggingIn(true);
+    setLoginError('');
+    try {
+      const nextAuth = await login(username, password);
+      setAuth(nextAuth);
+      setIsLoginModalOpen(false);
+      showToast(`Logged in as ${nextAuth.user?.label || nextAuth.user?.username || 'User'}.`);
+    } catch (error) {
+      setLoginError(error.message || 'Unable to login.');
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+
+  const handleLogout = () => {
+    clearStoredAuth();
+    setAuth(null);
+    showToast('Logged out. Continuing as Guest.');
   };
 
   const markNotificationsRead = () => {
@@ -269,6 +296,11 @@ export default function App() {
         <div className="header-actions">
           <GlobalSearch tasks={searchableTasks} onSelect={scrollToTask} />
           <NotificationBell notifications={notifications} unreadCount={unreadCount} onOpen={markNotificationsRead} onSelect={scrollToTask} />
+          {isAuthenticated ? (
+            <button className="button-secondary auth-button" type="button" onClick={handleLogout}>Logout {auth.user?.label || auth.user?.username}</button>
+          ) : (
+            <button className="button-secondary auth-button" type="button" onClick={() => { setLoginError(''); setIsLoginModalOpen(true); }}>Login</button>
+          )}
           <button className="button-primary" type="button" onClick={() => { setEditingTask(null); setIsModalOpen(true); }}>Add Task</button>
         </div>
       </header>
@@ -287,6 +319,7 @@ export default function App() {
         </section>
       </div>
       <TaskModal isOpen={isModalOpen} onClose={closeTaskModal} onSubmit={handleTaskSubmit} initialValues={editingTask || undefined} submitLabel={editingTask ? 'Update Task' : 'Create Task'} mode={editingTask ? 'edit' : 'create'} isSubmitting={isSubmittingTask} />
+      <LoginModal isOpen={isLoginModalOpen} onClose={() => setIsLoginModalOpen(false)} onSubmit={handleLogin} isSubmitting={isLoggingIn} error={loginError} />
       <TaskHistoryModal isOpen={Boolean(historyTask)} task={historyTask} onClose={() => setHistoryTask(null)} />
       <DeleteConfirmModal isOpen={Boolean(taskToDelete)} taskTitle={taskToDelete?.title} onConfirm={confirmDelete} onCancel={() => setTaskToDelete(null)} isDeleting={isDeletingTask} />
       {updatingStatusTaskId && (
