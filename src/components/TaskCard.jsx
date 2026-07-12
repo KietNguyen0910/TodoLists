@@ -28,7 +28,7 @@ function formatDateTime(dateString) {
   }).format(date);
 }
 
-export default function TaskCard({ index, task, statusMap, onStatusChange, onDelete, onEdit, onViewHistory, showCompletionTime = false }) {
+export default function TaskCard({ index, task, statusMap, onStatusChange, onDelete, onEdit, onViewHistory, showCompletionTime = false, isStatusUpdating = false }) {
   const statusConfig = statusMap[task.status] || statusMap['Initial Information Received'];
   const outcomes = Array.isArray(task.outcomeAchieved)
     ? task.outcomeAchieved
@@ -50,6 +50,7 @@ export default function TaskCard({ index, task, statusMap, onStatusChange, onDel
             className="font-semibold status-tag"
             value={task.status}
             aria-label={`Status for ${task.title || 'task'}`}
+            disabled={isStatusUpdating}
             onChange={(event) => onStatusChange(task._id, event.target.value)}
             style={{
               background: statusConfig.color,
@@ -63,6 +64,7 @@ export default function TaskCard({ index, task, statusMap, onStatusChange, onDel
               </option>
             ))}
           </select>
+          {isStatusUpdating && <span className="status-loading"><span className="loading-spinner" aria-hidden="true" />Updating...</span>}
           <div className="task-edit">
             <button className="delete-button" type="button" aria-label={`View history for ${task.title || 'task'}`} onClick={() => onViewHistory(task)}>&#128065;</button>
             <button className="delete-button" type="button" aria-label={`Edit ${task.title || 'task'}`} onClick={() => onEdit(task)}>✎</button>

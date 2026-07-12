@@ -32,7 +32,7 @@ function normalizeOutcomes(outcomeAchieved) {
   return outcomeAchieved ? [outcomeAchieved] : [];
 }
 
-export default function TaskModal({ isOpen, onClose, onSubmit, initialValues, submitLabel = 'Create Task', mode = 'create' }) {
+export default function TaskModal({ isOpen, onClose, onSubmit, initialValues, submitLabel = 'Create Task', mode = 'create', isSubmitting = false }) {
   const [form, setForm] = useState(initialForm);
 
   useEffect(() => {
@@ -48,7 +48,7 @@ export default function TaskModal({ isOpen, onClose, onSubmit, initialValues, su
   const handleChange = ({ target: { name, value } }) => setForm((previous) => ({ ...previous, [name]: value }));
   const handleSubmit = (event) => {
     event.preventDefault();
-    if (form.title.trim()) onSubmit(form);
+    if (!isSubmitting && form.title.trim()) onSubmit(form);
   };
 
   if (!isOpen) return null;
@@ -70,8 +70,11 @@ export default function TaskModal({ isOpen, onClose, onSubmit, initialValues, su
           <label>Note<textarea name="notes" value={form.notes} onChange={handleChange} rows="3" /></label>
           <label>Status<select name="status" value={form.status} onChange={handleChange}>{STATUS_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}</select></label>
           <div className="modal-actions">
-            <button type="button" className="button-secondary" onClick={onClose}>Cancel</button>
-            <button type="submit" className="button-primary">{submitLabel}</button>
+            <button type="button" className="button-secondary" onClick={onClose} disabled={isSubmitting}>Cancel</button>
+            <button type="submit" className="button-primary button-loading" disabled={isSubmitting}>
+              {isSubmitting && <span className="loading-spinner" aria-hidden="true" />}
+              {isSubmitting ? 'Saving...' : submitLabel}
+            </button>
           </div>
         </form>
       </div>

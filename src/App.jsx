@@ -14,9 +14,24 @@ const TABS = [
 
 const isActiveTask = (task) => !(task.deleted || task.isDeleted);
 
+function getDateTime(value) {
+  if (!value) return 0;
+
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? 0 : date.getTime();
+}
+
+function sortTasksForTab(tasks, tabId) {
+  if (!['waiting', 'completed'].includes(tabId)) return tasks;
+
+  return [...tasks].sort((first, second) => getDateTime(second.assignDate) - getDateTime(first.assignDate));
+}
+
 export default function App() {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isSubmittingTask, setIsSubmittingTask] = useState(false);
+  const [updatingStatusTaskId, setUpdatingStatusTaskId] = useState(null);
   const [error, setError] = useState('');
   const [activeTabId, setActiveTabId] = useState('todo');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -50,7 +65,10 @@ export default function App() {
 
   const activeTab = TABS.find((tab) => tab.id === activeTabId) || TABS[0];
   const showCompletionTime = activeTab.id === 'completed';
-  const visibleTasks = tasks.filter(isActiveTask).filter((task) => activeTab.statuses.includes(task.status));
+  const visibleTasks = sortTasksForTab(
+    tasks.filter(isActiveTask).filter((task) => activeTab.statuses.includes(task.status)),
+    activeTab.id
+  );
   const getCount = (tab) => tasks.filter(isActiveTask).filter((task) => tab.statuses.includes(task.status)).length;
 
   const closeTaskModal = () => {
@@ -59,6 +77,7 @@ export default function App() {
   };
 
   const handleTaskSubmit = async (taskData) => {
+    setIsSubmittingTask(true);
     try {
       if (editingTask) {
         await updateTask(editingTask._id, taskData);
@@ -71,16 +90,21 @@ export default function App() {
       await loadTasks();
     } catch {
       setError(editingTask ? 'Unable to update task.' : 'Unable to create task.');
+    } finally {
+      setIsSubmittingTask(false);
     }
   };
 
   const handleStatusChange = async (taskId, status) => {
+    setUpdatingStatusTaskId(taskId);
     try {
       await updateTask(taskId, { status });
       if (status === 'Lodged/Completed') showToast('Task status updated to Lodged/Completed.');
       await loadTasks();
     } catch {
       setError('Unable to update task.');
+    } finally {
+      setUpdatingStatusTaskId(null);
     }
   };
 
@@ -108,10 +132,10 @@ export default function App() {
         <section className="content">
           <div className="content-header"><h2>{activeTab.title}</h2><span className="task-count">({visibleTasks.length})</span></div>
           {error && <p className="error" role="alert">{error}</p>}
-          {loading ? <p className="empty">Loading tasks...</p> : <div className="task-list">{visibleTasks.length === 0 ? <p className="empty">No tasks found.</p> : <table className={`task-table ${showCompletionTime ? 'has-completion-time' : ''}`}><thead><tr><th>No</th><th>Assign Date</th><th>Software</th><th>Client</th><th>Task</th><th>Outcome Achieved</th><th>Note</th>{showCompletionTime && <th>Thời gian hoàn thành</th>}<th className="task-status-column">Status</th></tr></thead><tbody>{visibleTasks.map((task, index) => <TaskCard key={task._id} index={index + 1} task={task} statusMap={STATUS_MAP} onStatusChange={handleStatusChange} onDelete={(id, title) => setTaskToDelete({ id, title })} onEdit={(task) => { setEditingTask(task); setIsModalOpen(true); }} onViewHistory={setHistoryTask} showCompletionTime={showCompletionTime} />)}</tbody></table>}</div>}
+          {loading ? <p className="empty">Loading tasks...</p> : <div className="task-list">{visibleTasks.length === 0 ? <p className="empty">No tasks found.</p> : <table className={`task-table ${showCompletionTime ? 'has-completion-time' : ''}`}><thead><tr><th>No</th><th>Assign Date</th><th>Software</th><th>Client</th><th>Task</th><th>Outcome Achieved</th><th>Note</th>{showCompletionTime && <th>Completion Date</th>}<th className="task-status-column">Status</th></tr></thead><tbody>{visibleTasks.map((task, index) => <TaskCard key={task._id} index={index + 1} task={task} statusMap={STATUS_MAP} onStatusChange={handleStatusChange} onDelete={(id, title) => setTaskToDelete({ id, title })} onEdit={(task) => { setEditingTask(task); setIsModalOpen(true); }} onViewHistory={setHistoryTask} showCompletionTime={showCompletionTime} isStatusUpdating={updatingStatusTaskId === task._id} />)}</tbody></table>}</div>}
         </section>
       </div>
-      <TaskModal isOpen={isModalOpen} onClose={closeTaskModal} onSubmit={handleTaskSubmit} initialValues={editingTask || undefined} submitLabel={editingTask ? 'Update Task' : 'Create Task'} mode={editingTask ? 'edit' : 'create'} />
+      <TaskModal isOpen={isModalOpen} onClose={closeTaskModal} onSubmit={handleTaskSubmit} initialValues={editingTask || undefined} submitLabel={editingTask ? 'Update Task' : 'Create Task'} mode={editingTask ? 'edit' : 'create'} isSubmitting={isSubmittingTask} />
       <TaskHistoryModal isOpen={Boolean(historyTask)} task={historyTask} onClose={() => setHistoryTask(null)} />
       <DeleteConfirmModal isOpen={Boolean(taskToDelete)} taskTitle={taskToDelete?.title} onConfirm={confirmDelete} onCancel={() => setTaskToDelete(null)} />
       {toastMessage && <div className="toast" role="status">{toastMessage}</div>}
