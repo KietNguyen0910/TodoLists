@@ -459,6 +459,29 @@ select:disabled {
   accent-color: #4f46e5;
 }
 
+.outcome-phase-group + .outcome-phase-group {
+  margin-top: 8px;
+}
+
+.outcome-phase-title {
+  position: sticky;
+  top: 48px;
+  z-index: 1;
+  margin: 4px 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #f1f5f9;
+  color: #3730a3;
+  font-size: 0.88rem;
+  font-weight: 800;
+}
+
+.outcome-progress-label {
+  margin-bottom: 6px;
+  color: #4f46e5;
+  font-weight: 800;
+}
+
 .outcome-selected-list,
 .outcome-table-list {
   margin: 8px 0 0;

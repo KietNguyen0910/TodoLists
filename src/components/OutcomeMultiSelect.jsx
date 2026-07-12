@@ -1,6 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 
-export default function OutcomeMultiSelect({ options, value = [], onChange }) {
+function normalizeOptionGroups(options) {
+  return options.map((option, index) => (
+    typeof option === 'string'
+      ? { title: '', items: [option], key: `ungrouped-${index}` }
+      : { title: option.title || '', items: option.items || [], key: option.title || `group-${index}` }
+  ));
+}
+
+export default function OutcomeMultiSelect({ options, value = [], progressLabel = '', onChange }) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [highlightedIndex, setHighlightedIndex] = useState(0);
@@ -8,7 +16,17 @@ export default function OutcomeMultiSelect({ options, value = [], onChange }) {
   const searchInputRef = useRef(null);
   const optionRefs = useRef([]);
   const selected = Array.isArray(value) ? value : value ? [value] : [];
-  const filteredOptions = options.filter((option) => option.toLowerCase().includes(searchTerm.trim().toLowerCase()));
+  const optionGroups = normalizeOptionGroups(options);
+  const keyword = searchTerm.trim().toLowerCase();
+  const filteredGroups = optionGroups
+    .map((group) => ({
+      ...group,
+      items: keyword
+        ? group.items.filter((option) => option.toLowerCase().includes(keyword))
+        : group.items,
+    }))
+    .filter((group) => group.items.length > 0);
+  const filteredOptions = filteredGroups.flatMap((group) => group.items);
 
   useEffect(() => {
     const handlePointerDown = (event) => {
@@ -81,7 +99,7 @@ export default function OutcomeMultiSelect({ options, value = [], onChange }) {
         onClick={() => setIsOpen((open) => !open)}
       >
         <div className="flex justify-between w-full gap-1">
-          <span>{selected.length ? `${selected.length} outcome${selected.length > 1 ? 's' : ''} selected` : 'Select outcomes'}</span>
+          <span>{selected.length ? `${selected.length} outcome${selected.length > 1 ? 's' : ''} selected - ${progressLabel}` : 'Select outcomes'}</span>
           <span aria-hidden="true">v</span>
         </div>
       </button>
@@ -101,24 +119,42 @@ export default function OutcomeMultiSelect({ options, value = [], onChange }) {
             {selected.length > 0 && <button type="button" onClick={() => onChange([])}>Clear</button>}
           </div>
           {filteredOptions.length === 0 && <p className="outcome-empty">No outcomes found</p>}
-          {filteredOptions.map((option, index) => (
-            <label
-              ref={(element) => { optionRefs.current[index] = element; }}
-              id={`outcome-option-${index}`}
-              className={`outcome-option${index === highlightedIndex ? ' is-active' : ''}`}
-              key={option}
-              role="option"
-              aria-selected={selected.includes(option)}
-              onMouseEnter={() => setHighlightedIndex(index)}
-            >
-              <input type="checkbox" checked={selected.includes(option)} onChange={() => toggleOption(option)} />
-              <span>{option}</span>
-            </label>
-          ))}
+          {filteredGroups.map((group) => {
+            let groupStartIndex = 0;
+            for (const previousGroup of filteredGroups) {
+              if (previousGroup.key === group.key) break;
+              groupStartIndex += previousGroup.items.length;
+            }
+
+            return (
+              <div className="outcome-phase-group" key={group.key}>
+                {group.title && <div className="outcome-phase-title">{group.title}</div>}
+                {group.items.map((option, optionIndex) => {
+                  const index = groupStartIndex + optionIndex;
+
+                  return (
+                    <label
+                      ref={(element) => { optionRefs.current[index] = element; }}
+                      id={`outcome-option-${index}`}
+                      className={`outcome-option${index === highlightedIndex ? ' is-active' : ''}`}
+                      key={option}
+                      role="option"
+                      aria-selected={selected.includes(option)}
+                      onMouseEnter={() => setHighlightedIndex(index)}
+                    >
+                      <input type="checkbox" checked={selected.includes(option)} onChange={() => toggleOption(option)} />
+                      <span>{option}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            );
+          })}
         </div>
       )}
       {selected.length > 0 && !isOpen && (
         <ul className="outcome-selected-list" aria-label="Selected outcomes">
+          <li className="outcome-progress-label">{progressLabel}</li>
           {selected.map((option) => <li className="font-semibold text-left text-black" key={option}>+ {option}</li>)}
         </ul>
       )}

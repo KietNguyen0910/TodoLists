@@ -1,21 +1,8 @@
 import { useEffect, useState } from 'react';
+import { OUTCOME_PHASES, getOutcomeProgress } from '../outcomeConfig';
 import { getSoftwareColor } from '../softwareConfig';
 import { STATUS_OPTIONS } from '../statusConfig';
 import OutcomeMultiSelect from './OutcomeMultiSelect';
-
-const outcomeOptions = [
-  'All bank accounts reconciled', 'No unreconciled transactions remaining', 'Duplicate transactions checked',
-  'Bank balances agree to Xero', 'GST coding reviewed for unusual items', 'GST-free / input taxed items checked',
-  'Large or unusual transactions reviewed', 'BAS figures agree to reports', 'Suspense account reviewed',
-  'Loan accounts reviewed', 'Director loan checked', 'Payroll liabilities reviewed', 'Super payable reviewed',
-  'ATO integrated client account checked', 'Payroll reconciled to STP', 'Super reconciled', 'PAYG withholding reviewed',
-  'Duplicate payruns checked', 'Major variances investigated', 'Unusual expenses reviewed', 'Personal expenses identified',
-  'Correct account coding confirmed', 'Asset balances reasonable', 'Liabilities reviewed', 'GST clearing checked',
-  'Loan balances reasonable', 'No obvious negative balances', 'Super accrued matches payroll reports',
-  'Super payable reconciled', 'Super paid by quarterly due date', 'Late super payments identified',
-  'SGC risk reviewed (if applicable)', 'Clearing account reconciled', 'Super payment evidence sighted',
-  'Prepare Working Papers', 'Prepare Financial Statement', 'Prepare Income Tax Return',
-];
 
 const softwareOptions = ['MYOB', 'Quickbook', 'Xero', 'Reckon'];
 const initialForm = { title: '', description: '', outcomeAchieved: [], assignDate: '', deadline: '', notes: '', software: '', payroll: null, status: 'Initial Information Received' };
@@ -35,6 +22,7 @@ function normalizeOutcomes(outcomeAchieved) {
 
 export default function TaskModal({ isOpen, onClose, onSubmit, initialValues, submitLabel = 'Create Task', mode = 'create', isSubmitting = false }) {
   const [form, setForm] = useState(initialForm);
+  const outcomeProgress = getOutcomeProgress(form.outcomeAchieved);
 
   useEffect(() => {
     const createInitialForm = { ...initialForm, assignDate: getTodayInputDate() };
@@ -53,11 +41,14 @@ export default function TaskModal({ isOpen, onClose, onSubmit, initialValues, su
     event.preventDefault();
     if (!isSubmitting && form.title.trim()) onSubmit(form);
   };
+  const handleOverlayClick = (event) => {
+    if (event.target === event.currentTarget && !isSubmitting) onClose();
+  };
 
   if (!isOpen) return null;
 
   return (
-    <div className="modal-overlay" role="presentation">
+    <div className="modal-overlay" role="presentation" onMouseDown={handleOverlayClick}>
       <div className="modal-card" role="dialog" aria-modal="true" aria-labelledby="task-modal-title">
         <div className="modal-header">
           <h2 id="task-modal-title">{mode === 'edit' ? 'Edit Task' : 'New Task'}</h2>
@@ -66,7 +57,7 @@ export default function TaskModal({ isOpen, onClose, onSubmit, initialValues, su
         <form className="modal-form" onSubmit={handleSubmit}>
           <label>Client<input name="title" value={form.title} onChange={handleChange} required /></label>
           <label>Task<textarea name="description" value={form.description} onChange={handleChange} rows="3" /></label>
-          <label>Outcome Achieved<OutcomeMultiSelect options={outcomeOptions} value={form.outcomeAchieved} onChange={(outcomes) => setForm((previous) => ({ ...previous, outcomeAchieved: outcomes }))} /></label>
+          <label>Outcome Achieved<OutcomeMultiSelect options={OUTCOME_PHASES} value={form.outcomeAchieved} progressLabel={outcomeProgress.label} onChange={(outcomes) => setForm((previous) => ({ ...previous, outcomeAchieved: outcomes }))} /></label>
           <label>Select Software<select name="software" value={form.software} onChange={handleChange} style={{ color: form.software ? getSoftwareColor(form.software) : undefined }}><option value="">Select software</option>{softwareOptions.map((option) => <option className='font-semibold' key={option} value={option} style={{ color: getSoftwareColor(option) }}>{option}</option>)}</select></label>
           <div className="form-field">
             <div className="field-label-row">

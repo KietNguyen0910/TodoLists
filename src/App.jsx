@@ -214,14 +214,19 @@ export default function App() {
     setIsSubmittingTask(true);
     try {
       if (editingTask) {
-        await updateTask(editingTask._id, taskData);
+        const updatedTask = await updateTask(editingTask._id, taskData);
+        setTasks((currentTasks) => currentTasks.map((task) => (
+          task._id === editingTask._id
+            ? { ...task, ...(updatedTask || {}), ...taskData, _id: task._id }
+            : task
+        )));
         showToast('Task updated successfully.');
       } else {
         await createTask(taskData);
         showToast('Task created successfully.');
+        await loadTasks();
       }
       closeTaskModal();
-      await loadTasks();
     } catch {
       setError(editingTask ? 'Unable to update task.' : 'Unable to create task.');
     } finally {
@@ -261,8 +266,8 @@ export default function App() {
     <div className="app">
       <header className="header">
         <div className="header-title"><p className="eyebrow">Cassie Nguyen</p><h1>Daily Outcome-Based Updates</h1></div>
-        <GlobalSearch tasks={searchableTasks} onSelect={scrollToTask} />
         <div className="header-actions">
+          <GlobalSearch tasks={searchableTasks} onSelect={scrollToTask} />
           <NotificationBell notifications={notifications} unreadCount={unreadCount} onOpen={markNotificationsRead} onSelect={scrollToTask} />
           <button className="button-primary" type="button" onClick={() => { setEditingTask(null); setIsModalOpen(true); }}>Add Task</button>
         </div>

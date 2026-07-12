@@ -31,9 +31,12 @@ export default function TaskHistoryModal({ isOpen, task, onClose }) {
   if (!isOpen) return null;
 
   const logs = [...(task?.auditLogs || [])].sort((left, right) => new Date(right.changedAt) - new Date(left.changedAt));
+  const handleOverlayClick = (event) => {
+    if (event.target === event.currentTarget) onClose();
+  };
 
   return (
-    <div className="modal-overlay" role="presentation">
+    <div className="modal-overlay" role="presentation" onMouseDown={handleOverlayClick}>
       <div className="modal-card history-modal-card" role="dialog" aria-modal="true" aria-labelledby="task-history-title">
         <div className="modal-header">
           <h2 id="task-history-title">Task History</h2>

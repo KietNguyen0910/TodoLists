@@ -1,8 +1,11 @@
 export default function DeleteConfirmModal({ isOpen, taskTitle, onConfirm, onCancel, isDeleting = false }) {
   if (!isOpen) return null;
+  const handleOverlayClick = (event) => {
+    if (event.target === event.currentTarget && !isDeleting) onCancel();
+  };
 
   return (
-    <div className="modal-overlay" role="presentation">
+    <div className="modal-overlay" role="presentation" onMouseDown={handleOverlayClick}>
       <div className="modal-card" role="dialog" aria-modal="true" aria-labelledby="delete-task-title">
         <div className="modal-header">
           <h2 id="delete-task-title">Delete Task</h2>

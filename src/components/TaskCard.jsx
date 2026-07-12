@@ -1,4 +1,5 @@
 import { getSoftwareColor } from '../softwareConfig';
+import { getOutcomeProgress } from '../outcomeConfig';
 
 function hexToRgba(hex, alpha = 0.12) {
   const normalized = hex.replace('#', '').length === 3
@@ -41,19 +42,20 @@ export default function TaskCard({ index, task, taskRef, statusMap, onStatusChan
   const outcomes = Array.isArray(task.outcomeAchieved)
     ? task.outcomeAchieved
     : task.outcomeAchieved ? [task.outcomeAchieved] : [];
+  const outcomeProgress = getOutcomeProgress(outcomes);
   const handleRowDoubleClick = (event) => {
     if (event.target.closest('button, select, input, textarea, a')) return;
     onEdit(task);
   };
 
   return (
-    <tr ref={taskRef} className={`task-row ${isHighlighted ? 'is-highlighted' : ''}`} onDoubleClick={handleRowDoubleClick} style={{ backgroundColor: hexToRgba(statusConfig.color || '#ffffff', 0.6) }}>
+    <tr ref={taskRef} className={`task-row ${isHighlighted ? 'is-highlighted' : ''}`} onDoubleClick={handleRowDoubleClick} style={{ backgroundColor: hexToRgba(statusConfig.color || '#ffffff', 0.3) }}>
       <td className='cursor-pointer'>{index}</td>
       <td className='cursor-pointer'>{formatDate(task.assignDate)}</td>
       <td className='cursor-pointer'>{task.software ? <span className="software-value" style={{ color: getSoftwareColor(task.software) }}>{task.software}</span> : '_'}</td>
       <td className='cursor-pointer'>{task.title || '_'}</td>
       <td className='cursor-pointer'>{task.description || '_'}</td>
-      <td className='cursor-pointer'>{outcomes.length ? <ul className="outcome-table-list">{outcomes.map((outcome) => <li key={outcome}>+ {outcome}</li>)}</ul> : '_'}</td>
+      <td className='cursor-pointer'>{outcomes.length ? <><div className="outcome-progress-label">{outcomeProgress.label}</div><ul className="outcome-table-list">{outcomes.map((outcome) => <li key={outcome}>+ {outcome}</li>)}</ul></> : '_'}</td>
       <td className='cursor-pointer'>{task.notes || '_'}</td>
       <td className='cursor-pointer payroll-cell'>{formatPayroll(task.payroll)}</td>
       {showCompletionTime && <td className="completion-time-cell">{formatDateTime(task.completionDate)}</td>}
