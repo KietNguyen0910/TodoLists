@@ -17,6 +17,10 @@ const taskSchema = new mongoose.Schema(
       trim: true,
       default: '',
     },
+    payroll: {
+      type: Boolean,
+      default: null,
+    },
     outcomeAchieved: {
       type: [String],
       default: [],

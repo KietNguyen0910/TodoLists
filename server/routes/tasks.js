@@ -22,12 +22,14 @@ const normalizeOutcomes = (value) => (Array.isArray(value) ? value : [value])
   .filter((outcome) => typeof outcome === 'string')
   .map((outcome) => outcome.trim())
   .filter(Boolean);
+const normalizePayroll = (value) => (typeof value === 'boolean' ? value : null);
 
 const AUDIT_FIELDS = [
   { field: 'title', label: 'Client', normalize: (value) => value || '' },
   { field: 'description', label: 'Task', normalize: (value) => value || '' },
   { field: 'outcomeAchieved', label: 'Outcome Achieved', normalize: normalizeOutcomes },
   { field: 'software', label: 'Software', normalize: (value) => value || '' },
+  { field: 'payroll', label: 'Payroll', normalize: normalizePayroll },
   { field: 'assignDate', label: 'Assign Date', normalize: (value) => value || '' },
   { field: 'deadline', label: 'Deadline', normalize: (value) => value || '' },
   { field: 'notes', label: 'Note', normalize: (value) => value || '' },
@@ -35,7 +37,7 @@ const AUDIT_FIELDS = [
   { field: 'deleted', label: 'Deleted', normalize: (value) => Boolean(value) },
 ];
 
-const hasValue = (value) => (Array.isArray(value) ? value.length > 0 : value !== '' && value !== false && value !== null && value !== undefined);
+const hasValue = (value) => (Array.isArray(value) ? value.length > 0 : value !== '' && value !== null && value !== undefined);
 
 const areEqual = (left, right) => JSON.stringify(left) === JSON.stringify(right);
 
@@ -77,6 +79,7 @@ const serializeTask = (task) => {
   return {
     ...taskObj,
     software: taskObj.software || '',
+    payroll: typeof taskObj.payroll === 'boolean' ? taskObj.payroll : null,
     auditLogs: taskObj.auditLogs || [],
     deleted: isDeleted,
     isDeleted,
@@ -98,7 +101,7 @@ router.get('/', async (req, res) => {
 
 router.post('/', async (req, res) => {
   try {
-    const { title, description, software, outcomeAchieved, assignDate, deadline, notes, status } = req.body;
+    const { title, description, software, payroll, outcomeAchieved, assignDate, deadline, notes, status } = req.body;
 
     if (!title || !title.trim()) {
       return res.status(400).json({ message: 'Title is required' });
@@ -109,6 +112,7 @@ router.post('/', async (req, res) => {
       title: title.trim(),
       description: description || '',
       software: software || '',
+      payroll: normalizePayroll(payroll),
       outcomeAchieved: normalizeOutcomes(outcomeAchieved),
       assignDate: assignDate || '',
       deadline: deadline || '',
@@ -134,7 +138,7 @@ router.post('/', async (req, res) => {
 
 router.patch('/:id', async (req, res) => {
   try {
-    const { title, description, software, outcomeAchieved, assignDate, deadline, notes, status, deleted } = req.body;
+    const { title, description, software, payroll, outcomeAchieved, assignDate, deadline, notes, status, deleted } = req.body;
     const updates = {};
 
     if (title !== undefined) {
@@ -145,6 +149,9 @@ router.patch('/:id', async (req, res) => {
     }
     if (software !== undefined) {
       updates.software = software;
+    }
+    if (payroll !== undefined) {
+      updates.payroll = normalizePayroll(payroll);
     }
     if (outcomeAchieved !== undefined) {
       updates.outcomeAchieved = normalizeOutcomes(outcomeAchieved);

@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createTask, getTasks, updateTask } from './api/tasks';
 import DeleteConfirmModal from './components/DeleteConfirmModal';
+import GlobalSearch from './components/GlobalSearch';
 import NotificationBell from './components/NotificationBell';
+import ReportView from './components/ReportView';
 import TaskCard from './components/TaskCard';
 import TaskHistoryModal from './components/TaskHistoryModal';
 import TaskModal from './components/TaskModal';
@@ -12,6 +14,7 @@ const TABS = [
   { id: 'waiting', label: 'Waiting', title: 'Waiting Tasks', statuses: ['Waiting for review', 'Waiting client', 'Sent query for Manager'] },
   { id: 'completed', label: 'Completed', title: 'Completed Tasks', statuses: ['Lodged/Completed'] },
 ];
+const REPORT_TAB = { id: 'report', label: 'Report', title: 'Report' };
 
 const isActiveTask = (task) => !(task.deleted || task.isDeleted);
 const WAITING_STATUSES = new Set(TABS.find((tab) => tab.id === 'waiting').statuses);
@@ -30,6 +33,10 @@ function sortTasksForTab(tasks, tabId) {
   if (!['waiting', 'completed'].includes(tabId)) return tasks;
 
   return [...tasks].sort((first, second) => getDateTime(second.assignDate) - getDateTime(first.assignDate));
+}
+
+function getTaskTabId(status) {
+  return TABS.find((tab) => tab.statuses.includes(status))?.id || null;
 }
 
 function isWaitingStatus(status) {
@@ -137,14 +144,16 @@ export default function App() {
     };
   }, [loadTasks]);
 
-  const activeTab = TABS.find((tab) => tab.id === activeTabId) || TABS[0];
+  const isReportTab = activeTabId === REPORT_TAB.id;
+  const activeTab = isReportTab ? REPORT_TAB : TABS.find((tab) => tab.id === activeTabId) || TABS[0];
   const notifications = getOverdueWaitingNotifications(tasks);
   const unreadCount = notifications.filter((notification) => !readNotificationIds.includes(notification.id)).length;
   const showCompletionTime = activeTab.id === 'completed';
-  const visibleTasks = sortTasksForTab(
+  const visibleTasks = isReportTab ? [] : sortTasksForTab(
     tasks.filter(isActiveTask).filter((task) => activeTab.statuses.includes(task.status)),
     activeTab.id
   );
+  const searchableTasks = tasks.filter(isActiveTask).filter((task) => getTaskTabId(task.status));
   const getCount = (tab) => tasks.filter(isActiveTask).filter((task) => tab.statuses.includes(task.status)).length;
 
   const closeTaskModal = () => {
@@ -162,13 +171,20 @@ export default function App() {
     });
   };
 
-  const scrollToTask = (taskId) => {
-    setActiveTabId('waiting');
-    setPendingScrollTaskId(taskId);
+  const scrollToTask = (taskOrId) => {
+    const task = typeof taskOrId === 'string'
+      ? tasks.find((item) => item._id === taskOrId)
+      : taskOrId;
+    const targetTabId = getTaskTabId(task?.status);
+
+    if (!task || !targetTabId) return;
+
+    setActiveTabId(targetTabId);
+    setPendingScrollTaskId(task._id);
   };
 
   useEffect(() => {
-    if (!pendingScrollTaskId || activeTabId !== 'waiting') return;
+    if (!pendingScrollTaskId || isReportTab) return;
 
     const taskElement = taskRefs.current[pendingScrollTaskId];
     if (!taskElement) return;
@@ -178,7 +194,7 @@ export default function App() {
     setPendingScrollTaskId(null);
     window.clearTimeout(highlightTimer.current);
     highlightTimer.current = window.setTimeout(() => setHighlightedTaskId(null), 2000);
-  }, [activeTabId, pendingScrollTaskId, visibleTasks]);
+  }, [activeTabId, isReportTab, pendingScrollTaskId, visibleTasks]);
 
   const handleTaskSubmit = async (taskData) => {
     setIsSubmittingTask(true);
@@ -230,18 +246,25 @@ export default function App() {
   return (
     <div className="app">
       <header className="header">
-        <div><p className="eyebrow">Cassie Nguyen</p><h1>Daily Outcome-Based Updates</h1></div>
+        <div className="header-title"><p className="eyebrow">Cassie Nguyen</p><h1>Daily Outcome-Based Updates</h1></div>
+        <GlobalSearch tasks={searchableTasks} onSelect={scrollToTask} />
         <div className="header-actions">
           <NotificationBell notifications={notifications} unreadCount={unreadCount} onOpen={markNotificationsRead} onSelect={scrollToTask} />
           <button className="button-primary" type="button" onClick={() => { setEditingTask(null); setIsModalOpen(true); }}>Add Task</button>
         </div>
       </header>
       <div className="main-layout">
-        <aside className="sidebar"><h2>Tabs</h2>{TABS.map((tab) => <button key={tab.id} type="button" className={`sidebar-button ${activeTab.id === tab.id ? 'active' : ''}`} onClick={() => setActiveTabId(tab.id)}>{tab.label}<span className="task-count">({getCount(tab)})</span></button>)}</aside>
+        <aside className="sidebar"><h2>Tabs</h2>{[...TABS, REPORT_TAB].map((tab) => <button key={tab.id} type="button" className={`sidebar-button ${activeTab.id === tab.id ? 'active' : ''}`} onClick={() => setActiveTabId(tab.id)}>{tab.label}{tab.id !== REPORT_TAB.id && <span className="task-count">({getCount(tab)})</span>}</button>)}</aside>
         <section className="content">
-          <div className="content-header"><h2>{activeTab.title}</h2><span className="task-count">({visibleTasks.length})</span></div>
           {error && <p className="error" role="alert">{error}</p>}
-          {loading ? <p className="empty">Loading tasks...</p> : <div className="task-list">{visibleTasks.length === 0 ? <p className="empty">No tasks found.</p> : <table className={`task-table ${showCompletionTime ? 'has-completion-time' : ''}`}><thead><tr><th>No</th><th>Assign Date</th><th>Software</th><th>Client</th><th>Task</th><th>Outcome Achieved</th><th>Note</th>{showCompletionTime && <th>Completion Date</th>}<th className="task-status-column">Status</th></tr></thead><tbody>{visibleTasks.map((task, index) => <TaskCard key={task._id} taskRef={(element) => { taskRefs.current[task._id] = element; }} index={index + 1} task={task} statusMap={STATUS_MAP} onStatusChange={handleStatusChange} onDelete={(id, title) => setTaskToDelete({ id, title })} onEdit={(task) => { setEditingTask(task); setIsModalOpen(true); }} onViewHistory={setHistoryTask} showCompletionTime={showCompletionTime} isStatusUpdating={updatingStatusTaskId === task._id} isHighlighted={highlightedTaskId === task._id} />)}</tbody></table>}</div>}
+          {isReportTab ? (
+            loading ? <p className="empty">Loading tasks...</p> : <ReportView tasks={tasks} />
+          ) : (
+            <>
+              <div className="content-header"><h2>{activeTab.title}</h2><span className="task-count">({visibleTasks.length})</span></div>
+              {loading ? <p className="empty">Loading tasks...</p> : <div className="task-list">{visibleTasks.length === 0 ? <p className="empty">No tasks found.</p> : <table className={`task-table ${showCompletionTime ? 'has-completion-time' : ''}`}><thead><tr><th>No</th><th>Assign Date</th><th>Software</th><th>Client</th><th>Task</th><th>Outcome Achieved</th><th>Note</th><th className="payroll-column">Payroll</th>{showCompletionTime && <th>Completion Date</th>}<th className="task-status-column">Status</th></tr></thead><tbody>{visibleTasks.map((task, index) => <TaskCard key={task._id} taskRef={(element) => { taskRefs.current[task._id] = element; }} index={index + 1} task={task} statusMap={STATUS_MAP} onStatusChange={handleStatusChange} onDelete={(id, title) => setTaskToDelete({ id, title })} onEdit={(task) => { setEditingTask(task); setIsModalOpen(true); }} onViewHistory={setHistoryTask} showCompletionTime={showCompletionTime} isStatusUpdating={updatingStatusTaskId === task._id} isHighlighted={highlightedTaskId === task._id} />)}</tbody></table>}</div>}
+            </>
+          )}
         </section>
       </div>
       <TaskModal isOpen={isModalOpen} onClose={closeTaskModal} onSubmit={handleTaskSubmit} initialValues={editingTask || undefined} submitLabel={editingTask ? 'Update Task' : 'Create Task'} mode={editingTask ? 'edit' : 'create'} isSubmitting={isSubmittingTask} />

@@ -17,7 +17,7 @@ const outcomeOptions = [
 ];
 
 const softwareOptions = ['MYOB', 'Quickbook', 'Xero', 'Reckon'];
-const initialForm = { title: '', description: '', outcomeAchieved: [], assignDate: '', deadline: '', notes: '', software: '', status: 'Initial Information Received' };
+const initialForm = { title: '', description: '', outcomeAchieved: [], assignDate: '', deadline: '', notes: '', software: '', payroll: null, status: 'Initial Information Received' };
 
 function getTodayInputDate() {
   const today = new Date();
@@ -42,10 +42,12 @@ export default function TaskModal({ isOpen, onClose, onSubmit, initialValues, su
       ...(initialValues ? initialForm : createInitialForm),
       ...(initialValues || {}),
       outcomeAchieved: normalizeOutcomes(initialValues?.outcomeAchieved),
+      payroll: typeof initialValues?.payroll === 'boolean' ? initialValues.payroll : null,
     } : initialForm);
   }, [isOpen, initialValues]);
 
   const handleChange = ({ target: { name, value } }) => setForm((previous) => ({ ...previous, [name]: value }));
+  const handlePayrollChange = (value) => setForm((previous) => ({ ...previous, payroll: value }));
   const handleSubmit = (event) => {
     event.preventDefault();
     if (!isSubmitting && form.title.trim()) onSubmit(form);
@@ -65,6 +67,16 @@ export default function TaskModal({ isOpen, onClose, onSubmit, initialValues, su
           <label>Task<textarea name="description" value={form.description} onChange={handleChange} rows="3" /></label>
           <label>Outcome Achieved<OutcomeMultiSelect options={outcomeOptions} value={form.outcomeAchieved} onChange={(outcomes) => setForm((previous) => ({ ...previous, outcomeAchieved: outcomes }))} /></label>
           <label>Select Software<select name="software" value={form.software} onChange={handleChange}><option value="">Select software</option>{softwareOptions.map((option) => <option key={option} value={option}>{option}</option>)}</select></label>
+          <div className="form-field">
+            <div className="field-label-row">
+              <span>Payroll</span>
+              <button className="button-link" type="button" onClick={() => handlePayrollChange(null)} disabled={isSubmitting || form.payroll === null}>Clear</button>
+            </div>
+            <div className="radio-group" role="radiogroup" aria-label="Payroll">
+              <label className={`radio-option ${form.payroll === true ? 'is-selected' : ''}`}><input type="radio" name="payroll" checked={form.payroll === true} disabled={isSubmitting} onChange={() => handlePayrollChange(true)} /> Yes</label>
+              <label className={`radio-option ${form.payroll === false ? 'is-selected' : ''}`}><input type="radio" name="payroll" checked={form.payroll === false} disabled={isSubmitting} onChange={() => handlePayrollChange(false)} /> No</label>
+            </div>
+          </div>
           <label>Assign Date<input type="date" name="assignDate" value={form.assignDate} onChange={handleChange} /></label>
           <label>Deadline<input type="date" name="deadline" value={form.deadline} onChange={handleChange} /></label>
           <label>Note<textarea name="notes" value={form.notes} onChange={handleChange} rows="3" /></label>

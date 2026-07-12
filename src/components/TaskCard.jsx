@@ -28,6 +28,12 @@ function formatDateTime(dateString) {
   }).format(date);
 }
 
+function formatPayroll(value) {
+  if (value === true) return 'Yes';
+  if (value === false) return 'No';
+  return '_';
+}
+
 export default function TaskCard({ index, task, taskRef, statusMap, onStatusChange, onDelete, onEdit, onViewHistory, showCompletionTime = false, isStatusUpdating = false, isHighlighted = false }) {
   const statusConfig = statusMap[task.status] || statusMap['Initial Information Received'];
   const outcomes = Array.isArray(task.outcomeAchieved)
@@ -47,6 +53,7 @@ export default function TaskCard({ index, task, taskRef, statusMap, onStatusChan
       <td className='cursor-pointer'>{task.description || '_'}</td>
       <td className='cursor-pointer'>{outcomes.length ? <ul className="outcome-table-list">{outcomes.map((outcome) => <li key={outcome}>+ {outcome}</li>)}</ul> : '_'}</td>
       <td className='cursor-pointer'>{task.notes || '_'}</td>
+      <td className='cursor-pointer payroll-cell'>{formatPayroll(task.payroll)}</td>
       {showCompletionTime && <td className="completion-time-cell">{formatDateTime(task.completionDate)}</td>}
       <td className="task-status-column">
         <div className="task-status-cell">

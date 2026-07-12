@@ -20,6 +20,7 @@ const serializeTask = (task) => {
   return {
     ...taskObj,
     software: taskObj.software || '',
+    payroll: typeof taskObj.payroll === 'boolean' ? taskObj.payroll : null,
     auditLogs: taskObj.auditLogs || [],
     deleted: isDeleted,
     isDeleted,
@@ -30,19 +31,21 @@ const normalizeOutcomes = (value) => (Array.isArray(value) ? value : [value])
   .filter((outcome) => typeof outcome === 'string')
   .map((outcome) => outcome.trim())
   .filter(Boolean);
+const normalizePayroll = (value) => (typeof value === 'boolean' ? value : null);
 
 const AUDIT_FIELDS = [
   { field: 'title', label: 'Client', normalize: (value) => value || '' },
   { field: 'description', label: 'Task', normalize: (value) => value || '' },
   { field: 'outcomeAchieved', label: 'Outcome Achieved', normalize: normalizeOutcomes },
   { field: 'software', label: 'Software', normalize: (value) => value || '' },
+  { field: 'payroll', label: 'Payroll', normalize: normalizePayroll },
   { field: 'assignDate', label: 'Assign Date', normalize: (value) => value || '' },
   { field: 'deadline', label: 'Deadline', normalize: (value) => value || '' },
   { field: 'notes', label: 'Note', normalize: (value) => value || '' },
   { field: 'status', label: 'Status', normalize: (value) => value || '' },
 ];
 
-const hasValue = (value) => (Array.isArray(value) ? value.length > 0 : value !== '' && value !== false && value !== null && value !== undefined);
+const hasValue = (value) => (Array.isArray(value) ? value.length > 0 : value !== '' && value !== null && value !== undefined);
 
 const createAuditLog = (action, changes) => ({
   action,
@@ -77,7 +80,7 @@ module.exports = async function handler(req, res) {
     }
 
     if (req.method === 'POST') {
-      const { title, description, software, outcomeAchieved, assignDate, deadline, notes, status } = req.body;
+      const { title, description, software, payroll, outcomeAchieved, assignDate, deadline, notes, status } = req.body;
       const VALID_STATUSES = [
         'Lodged/Completed',
         'Waiting for review',
@@ -99,6 +102,7 @@ module.exports = async function handler(req, res) {
         title: title.trim(),
         description: description || '',
         software: software || '',
+        payroll: normalizePayroll(payroll),
         outcomeAchieved: normalizeOutcomes(outcomeAchieved),
         assignDate: assignDate || '',
         deadline: deadline || '',
