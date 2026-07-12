@@ -1,7 +1,7 @@
 const ACTION_LABELS = {
-  created: 'Created task',
-  updated: 'Updated task',
-  deleted: 'Deleted task',
+  created: 'Created Task',
+  updated: 'Updated Task',
+  deleted: 'Deleted Task',
 };
 
 function formatDateTime(dateString) {
@@ -21,6 +21,10 @@ function formatValue(value) {
   if (typeof value === 'boolean') return value ? 'Yes' : 'No';
   if (value === null || value === undefined || value === '') return '_';
   return String(value);
+}
+
+function getChangeLabels(changes = []) {
+  return changes.map((change) => change.label || change.field).filter(Boolean).join(', ');
 }
 
 export default function TaskHistoryModal({ isOpen, task, onClose }) {
@@ -46,21 +50,28 @@ export default function TaskHistoryModal({ isOpen, task, onClose }) {
             <ol className="history-timeline">
               {logs.map((log, index) => (
                 <li className="history-item" key={`${log.changedAt}-${log.action}-${index}`}>
-                  <div className="history-item-header">
-                    <strong>{ACTION_LABELS[log.action] || 'Updated task'}</strong>
-                    <span>{formatDateTime(log.changedAt)}</span>
-                  </div>
-                  <p className="history-actor">By {log.actor || 'User'}</p>
-                  {log.changes?.length > 0 && (
-                    <ul className="history-changes">
-                      {log.changes.map((change, changeIndex) => (
-                        <li key={`${change.field}-${changeIndex}`}>
-                          <span>{change.label || change.field}</span>
-                          <strong>{formatValue(change.from)} -&gt; {formatValue(change.to)}</strong>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
+                  <details className="history-details">
+                    <summary className="history-summary">
+                      <span className="history-summary-title">
+                        {ACTION_LABELS[log.action] || 'Updated task'}
+                        {log.changes?.length > 0 && <span> ({getChangeLabels(log.changes)})</span>}
+                      </span>
+                      <span className="history-summary-meta">{formatDateTime(log.changedAt)}</span>
+                    </summary>
+                    <div className="history-detail-body">
+                      <p className="history-actor">By {log.actor || 'User'}</p>
+                      {log.changes?.length > 0 && (
+                        <ul className="history-changes">
+                          {log.changes.map((change, changeIndex) => (
+                            <li key={`${change.field}-${changeIndex}`}>
+                              <span>{change.label || change.field}</span>
+                              <strong>{formatValue(change.from)} -&gt; {formatValue(change.to)}</strong>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  </details>
                 </li>
               ))}
             </ol>

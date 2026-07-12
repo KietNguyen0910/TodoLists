@@ -28,21 +28,25 @@ function formatDateTime(dateString) {
   }).format(date);
 }
 
-export default function TaskCard({ index, task, statusMap, onStatusChange, onDelete, onEdit, onViewHistory, showCompletionTime = false, isStatusUpdating = false }) {
+export default function TaskCard({ index, task, taskRef, statusMap, onStatusChange, onDelete, onEdit, onViewHistory, showCompletionTime = false, isStatusUpdating = false, isHighlighted = false }) {
   const statusConfig = statusMap[task.status] || statusMap['Initial Information Received'];
   const outcomes = Array.isArray(task.outcomeAchieved)
     ? task.outcomeAchieved
     : task.outcomeAchieved ? [task.outcomeAchieved] : [];
+  const handleRowDoubleClick = (event) => {
+    if (event.target.closest('button, select, input, textarea, a')) return;
+    onEdit(task);
+  };
 
   return (
-    <tr className="task-row" style={{ backgroundColor: hexToRgba(statusConfig.color || '#ffffff', 0.6) }}>
-      <td>{index}</td>
-      <td>{formatDate(task.assignDate)}</td>
-      <td>{task.software || '_'}</td>
-      <td>{task.title || '_'}</td>
-      <td>{task.description || '_'}</td>
-      <td>{outcomes.length ? <ul className="outcome-table-list">{outcomes.map((outcome) => <li key={outcome}>+ {outcome}</li>)}</ul> : '_'}</td>
-      <td>{task.notes || '_'}</td>
+    <tr ref={taskRef} className={`task-row ${isHighlighted ? 'is-highlighted' : ''}`} onDoubleClick={handleRowDoubleClick} style={{ backgroundColor: hexToRgba(statusConfig.color || '#ffffff', 0.6) }}>
+      <td className='cursor-pointer'>{index}</td>
+      <td className='cursor-pointer'>{formatDate(task.assignDate)}</td>
+      <td className='cursor-pointer'>{task.software || '_'}</td>
+      <td className='cursor-pointer'>{task.title || '_'}</td>
+      <td className='cursor-pointer'>{task.description || '_'}</td>
+      <td className='cursor-pointer'>{outcomes.length ? <ul className="outcome-table-list">{outcomes.map((outcome) => <li key={outcome}>+ {outcome}</li>)}</ul> : '_'}</td>
+      <td className='cursor-pointer'>{task.notes || '_'}</td>
       {showCompletionTime && <td className="completion-time-cell">{formatDateTime(task.completionDate)}</td>}
       <td className="task-status-column">
         <div className="task-status-cell">
@@ -64,7 +68,6 @@ export default function TaskCard({ index, task, statusMap, onStatusChange, onDel
               </option>
             ))}
           </select>
-          {isStatusUpdating && <span className="status-loading"><span className="loading-spinner" aria-hidden="true" />Updating...</span>}
           <div className="task-edit">
             <button className="delete-button" type="button" aria-label={`View history for ${task.title || 'task'}`} onClick={() => onViewHistory(task)}>&#128065;</button>
             <button className="delete-button" type="button" aria-label={`Edit ${task.title || 'task'}`} onClick={() => onEdit(task)}>✎</button>
