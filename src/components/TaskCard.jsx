@@ -1,3 +1,5 @@
+import { getSoftwareColor } from '../softwareConfig';
+
 function hexToRgba(hex, alpha = 0.12) {
   const normalized = hex.replace('#', '').length === 3
     ? hex.replace('#', '').split('').map((char) => char + char).join('')
@@ -48,7 +50,7 @@ export default function TaskCard({ index, task, taskRef, statusMap, onStatusChan
     <tr ref={taskRef} className={`task-row ${isHighlighted ? 'is-highlighted' : ''}`} onDoubleClick={handleRowDoubleClick} style={{ backgroundColor: hexToRgba(statusConfig.color || '#ffffff', 0.6) }}>
       <td className='cursor-pointer'>{index}</td>
       <td className='cursor-pointer'>{formatDate(task.assignDate)}</td>
-      <td className='cursor-pointer'>{task.software || '_'}</td>
+      <td className='cursor-pointer'>{task.software ? <span className="software-value" style={{ color: getSoftwareColor(task.software) }}>{task.software}</span> : '_'}</td>
       <td className='cursor-pointer'>{task.title || '_'}</td>
       <td className='cursor-pointer'>{task.description || '_'}</td>
       <td className='cursor-pointer'>{outcomes.length ? <ul className="outcome-table-list">{outcomes.map((outcome) => <li key={outcome}>+ {outcome}</li>)}</ul> : '_'}</td>

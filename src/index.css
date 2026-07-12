@@ -710,7 +710,6 @@ h1 {
 }
 
 .sidebar {
-  background: #f8fafc;
   padding-right: 20px;
   min-height: 280px;
   border-right:2px solid #e2e8f0;
@@ -796,6 +795,10 @@ h1 {
 
 .task-table .payroll-cell {
   font-weight: 700;
+}
+
+.software-value {
+  font-weight: 800;
 }
 
 .task-row:hover {

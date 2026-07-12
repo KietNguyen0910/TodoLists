@@ -15,6 +15,7 @@ const TABS = [
   { id: 'completed', label: 'Completed', title: 'Completed Tasks', statuses: ['Lodged/Completed'] },
 ];
 const REPORT_TAB = { id: 'report', label: 'Report', title: 'Report' };
+const TAB_IDS = new Set([...TABS.map((tab) => tab.id), REPORT_TAB.id]);
 
 const isActiveTask = (task) => !(task.deleted || task.isDeleted);
 const WAITING_STATUSES = new Set(TABS.find((tab) => tab.id === 'waiting').statuses);
@@ -37,6 +38,11 @@ function sortTasksForTab(tasks, tabId) {
 
 function getTaskTabId(status) {
   return TABS.find((tab) => tab.statuses.includes(status))?.id || null;
+}
+
+function getInitialTabId() {
+  const tab = new URLSearchParams(window.location.search).get('tab');
+  return TAB_IDS.has(tab) ? tab : 'todo';
 }
 
 function isWaitingStatus(status) {
@@ -106,7 +112,7 @@ export default function App() {
   const [isDeletingTask, setIsDeletingTask] = useState(false);
   const [updatingStatusTaskId, setUpdatingStatusTaskId] = useState(null);
   const [error, setError] = useState('');
-  const [activeTabId, setActiveTabId] = useState('todo');
+  const [activeTabId, setActiveTabId] = useState(getInitialTabId);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
   const [historyTask, setHistoryTask] = useState(null);
@@ -143,6 +149,14 @@ export default function App() {
       window.clearTimeout(highlightTimer.current);
     };
   }, [loadTasks]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    params.set('tab', activeTabId);
+    const nextUrl = `${window.location.pathname}?${params.toString()}${window.location.hash}`;
+
+    window.history.replaceState(null, '', nextUrl);
+  }, [activeTabId]);
 
   const isReportTab = activeTabId === REPORT_TAB.id;
   const activeTab = isReportTab ? REPORT_TAB : TABS.find((tab) => tab.id === activeTabId) || TABS[0];

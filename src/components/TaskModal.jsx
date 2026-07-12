@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { getSoftwareColor } from '../softwareConfig';
 import { STATUS_OPTIONS } from '../statusConfig';
 import OutcomeMultiSelect from './OutcomeMultiSelect';
 
@@ -66,7 +67,7 @@ export default function TaskModal({ isOpen, onClose, onSubmit, initialValues, su
           <label>Client<input name="title" value={form.title} onChange={handleChange} required /></label>
           <label>Task<textarea name="description" value={form.description} onChange={handleChange} rows="3" /></label>
           <label>Outcome Achieved<OutcomeMultiSelect options={outcomeOptions} value={form.outcomeAchieved} onChange={(outcomes) => setForm((previous) => ({ ...previous, outcomeAchieved: outcomes }))} /></label>
-          <label>Select Software<select name="software" value={form.software} onChange={handleChange}><option value="">Select software</option>{softwareOptions.map((option) => <option key={option} value={option}>{option}</option>)}</select></label>
+          <label>Select Software<select name="software" value={form.software} onChange={handleChange} style={{ color: form.software ? getSoftwareColor(form.software) : undefined }}><option value="">Select software</option>{softwareOptions.map((option) => <option className='font-semibold' key={option} value={option} style={{ color: getSoftwareColor(option) }}>{option}</option>)}</select></label>
           <div className="form-field">
             <div className="field-label-row">
               <span>Payroll</span>

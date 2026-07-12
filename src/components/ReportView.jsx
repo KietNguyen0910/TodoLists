@@ -184,12 +184,7 @@ export default function ReportView({ tasks }) {
 
   return (
     <div className="report-view">
-      <div className="content-header report-header">
-        <div>
-          <h2>Report</h2>
-          <p>Search task activity history by date range.</p>
-        </div>
-      </div>
+
       <div className="report-filters">
         <label>Layout
           <select value={reportType} onChange={(event) => setReportType(event.target.value)}>
