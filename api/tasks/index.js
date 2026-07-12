@@ -104,6 +104,7 @@ export default async function handler(req, res) {
         deadline: deadline || '',
         notes: notes || '',
         status: normalizedStatus,
+        completionDate: normalizedStatus === 'Lodged/Completed' ? new Date() : null,
         statusHistory: [{ status: normalizedStatus }],
       };
       taskPayload.auditLogs = [createAuditLog('created', buildCreateChanges(taskPayload))];

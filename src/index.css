@@ -485,6 +485,10 @@ h1 {
   border-collapse: collapse;
 }
 
+.task-table.has-completion-time {
+  min-width: 1120px;
+}
+
 .task-table th,
 .task-table td {
   text-align: left;
@@ -499,9 +503,13 @@ h1 {
   white-space: nowrap;
 }
 
-.task-table th:nth-child(8),
-.task-table td:nth-child(8) {
+.task-table .task-status-column {
   min-width: 330px;
+  white-space: nowrap;
+}
+
+.task-table .completion-time-cell {
+  min-width: 170px;
   white-space: nowrap;
 }
 

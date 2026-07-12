@@ -114,6 +114,7 @@ router.post('/', async (req, res) => {
       deadline: deadline || '',
       notes: notes || '',
       status: normalizedStatus,
+      completionDate: normalizedStatus === 'Lodged/Completed' ? new Date() : null,
       statusHistory: [{ status: normalizedStatus, changedAt: new Date() }],
     };
     taskPayload.auditLogs = [createAuditLog('created', buildCreateChanges(taskPayload))];

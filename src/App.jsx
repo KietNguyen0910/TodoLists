@@ -49,6 +49,7 @@ export default function App() {
   }, [loadTasks]);
 
   const activeTab = TABS.find((tab) => tab.id === activeTabId) || TABS[0];
+  const showCompletionTime = activeTab.id === 'completed';
   const visibleTasks = tasks.filter(isActiveTask).filter((task) => activeTab.statuses.includes(task.status));
   const getCount = (tab) => tasks.filter(isActiveTask).filter((task) => tab.statuses.includes(task.status)).length;
 
@@ -107,7 +108,7 @@ export default function App() {
         <section className="content">
           <div className="content-header"><h2>{activeTab.title}</h2><span className="task-count">({visibleTasks.length})</span></div>
           {error && <p className="error" role="alert">{error}</p>}
-          {loading ? <p className="empty">Loading tasks...</p> : <div className="task-list">{visibleTasks.length === 0 ? <p className="empty">No tasks found.</p> : <table className="task-table"><thead><tr><th>No</th><th>Assign Date</th><th>Software</th><th>Client</th><th>Task</th><th>Outcome Achieved</th><th>Note</th><th>Status</th></tr></thead><tbody>{visibleTasks.map((task, index) => <TaskCard key={task._id} index={index + 1} task={task} statusMap={STATUS_MAP} onStatusChange={handleStatusChange} onDelete={(id, title) => setTaskToDelete({ id, title })} onEdit={(task) => { setEditingTask(task); setIsModalOpen(true); }} onViewHistory={setHistoryTask} />)}</tbody></table>}</div>}
+          {loading ? <p className="empty">Loading tasks...</p> : <div className="task-list">{visibleTasks.length === 0 ? <p className="empty">No tasks found.</p> : <table className={`task-table ${showCompletionTime ? 'has-completion-time' : ''}`}><thead><tr><th>No</th><th>Assign Date</th><th>Software</th><th>Client</th><th>Task</th><th>Outcome Achieved</th><th>Note</th>{showCompletionTime && <th>Thời gian hoàn thành</th>}<th className="task-status-column">Status</th></tr></thead><tbody>{visibleTasks.map((task, index) => <TaskCard key={task._id} index={index + 1} task={task} statusMap={STATUS_MAP} onStatusChange={handleStatusChange} onDelete={(id, title) => setTaskToDelete({ id, title })} onEdit={(task) => { setEditingTask(task); setIsModalOpen(true); }} onViewHistory={setHistoryTask} showCompletionTime={showCompletionTime} />)}</tbody></table>}</div>}
         </section>
       </div>
       <TaskModal isOpen={isModalOpen} onClose={closeTaskModal} onSubmit={handleTaskSubmit} initialValues={editingTask || undefined} submitLabel={editingTask ? 'Update Task' : 'Create Task'} mode={editingTask ? 'edit' : 'create'} />
