@@ -1286,6 +1286,17 @@ h1 {
   font-weight: 700;
 }
 
+.task-table .outcome-column,
+.task-table .outcome-cell {
+  min-width: 260px;
+}
+
+.task-table .note-column,
+.task-table .note-cell {
+  min-width: 300px;
+  white-space: pre-line;
+}
+
 .task-table .property-cell {
   min-width: 180px;
 }
