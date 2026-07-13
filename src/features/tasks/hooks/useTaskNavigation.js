@@ -7,12 +7,8 @@ export function getInitialTabId() {
   return TAB_IDS.has(tab) ? tab : 'todo';
 }
 
-export function useTaskNavigation({ tasks, isReportTab, visibleTasks }) {
+export function useTaskTab() {
   const [activeTabId, setActiveTabId] = useState(getInitialTabId);
-  const [pendingScrollTaskId, setPendingScrollTaskId] = useState(null);
-  const [highlightedTaskId, setHighlightedTaskId] = useState(null);
-  const taskRefs = useRef({});
-  const highlightTimer = useRef();
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -21,6 +17,15 @@ export function useTaskNavigation({ tasks, isReportTab, visibleTasks }) {
 
     window.history.replaceState(null, '', nextUrl);
   }, [activeTabId]);
+
+  return { activeTabId, setActiveTabId };
+}
+
+export function useTaskNavigation({ tasks, activeTabId, setActiveTabId, isReportTab, visibleTasks }) {
+  const [pendingScrollTaskId, setPendingScrollTaskId] = useState(null);
+  const [highlightedTaskId, setHighlightedTaskId] = useState(null);
+  const taskRefs = useRef({});
+  const highlightTimer = useRef();
 
   const scrollToTask = (taskOrId) => {
     const task = typeof taskOrId === 'string'

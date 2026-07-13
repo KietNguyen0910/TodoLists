@@ -67,6 +67,28 @@ export function buildJobRows(tasks, fromDate, toDate) {
     .sort((first, second) => second.changedAt - first.changedAt);
 }
 
+export function buildSearchRows(tasks) {
+  return tasks
+    .filter((task) => !(task.deleted || task.isDeleted))
+    .map((task) => {
+      const activityDate = task.updatedAt || task.createdAt || task.assignDate || null;
+
+      return {
+        id: task._id,
+        changedAt: getDateTime(activityDate),
+        activityDate,
+        client: task.title || '_',
+        taskName: task.description || '_',
+        software: task.software || '_',
+        currentStatus: task.status || '_',
+        action: 'Current task',
+        updatedFields: '_',
+        detail: task.notes || '_',
+      };
+    })
+    .sort((first, second) => second.changedAt - first.changedAt);
+}
+
 export function filterRowsByClient(rows, clientSearch) {
   const keyword = clientSearch.trim().toLowerCase();
   if (!keyword) return rows;

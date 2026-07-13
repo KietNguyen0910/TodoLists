@@ -1,262 +1,156 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { clearStoredAuth, createTask, getStoredAuth, getTasks, login, updateTask } from './api/tasks';
+import { useEffect, useRef, useState } from 'react';
+import { createTask, deleteTasks, importTasks, updateClientTasks, updateTask } from './api/taskApi';
+import { CLIENT_TAB, REPORT_TAB, TASK_TABS as TABS } from './app/tabs.config';
 import DeleteConfirmModal from './components/DeleteConfirmModal';
-import GlobalSearch from './components/GlobalSearch';
+import ImportTasksModal from './components/ImportTasksModal';
 import LoginModal from './components/LoginModal';
-import NotificationBell from './components/NotificationBell';
 import ReportView from './components/ReportView';
-import TaskCard from './components/TaskCard';
 import TaskHistoryModal from './components/TaskHistoryModal';
 import TaskModal from './components/TaskModal';
-import { STATUS_MAP } from './statusConfig';
-
-const TABS = [
-  { id: 'todo', label: 'Todo List', title: 'Todo List', statuses: ['Initial Information Received', 'In Progress', 'Sent Report to client', 'On hold'] },
-  { id: 'waiting', label: 'Waiting', title: 'Waiting Tasks', statuses: ['Waiting for review', 'Waiting client', 'Sent query for Manager'] },
-  { id: 'completed', label: 'Completed', title: 'Completed Tasks', statuses: ['Lodged/Completed'] },
-];
-const REPORT_TAB = { id: 'report', label: 'Report', title: 'Report' };
-const TAB_IDS = new Set([...TABS.map((tab) => tab.id), REPORT_TAB.id]);
-
-const isActiveTask = (task) => !(task.deleted || task.isDeleted);
-const WAITING_STATUSES = new Set(TABS.find((tab) => tab.id === 'waiting').statuses);
-const NOTIFICATION_READ_KEY = 'todoApp.readWaitingNotifications';
-const OVERDUE_DAYS = 7;
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-function getDateTime(value) {
-  if (!value) return 0;
-
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? 0 : date.getTime();
-}
-
-function sortTasksForTab(tasks, tabId) {
-  if (!['waiting', 'completed'].includes(tabId)) return tasks;
-
-  return [...tasks].sort((first, second) => getDateTime(second.assignDate) - getDateTime(first.assignDate));
-}
-
-function getTaskTabId(status) {
-  return TABS.find((tab) => tab.statuses.includes(status))?.id || null;
-}
-
-function getInitialTabId() {
-  const tab = new URLSearchParams(window.location.search).get('tab');
-  return TAB_IDS.has(tab) ? tab : 'todo';
-}
-
-function isWaitingStatus(status) {
-  return WAITING_STATUSES.has(status);
-}
-
-function getWaitingEnteredAt(task) {
-  const history = Array.isArray(task.statusHistory) ? task.statusHistory : [];
-  let enteredAt = null;
-  let wasWaiting = false;
-
-  history.forEach((entry) => {
-    const isWaiting = isWaitingStatus(entry.status);
-    if (isWaiting && !wasWaiting) {
-      enteredAt = entry.changedAt;
-    }
-    wasWaiting = isWaiting;
-  });
-
-  return enteredAt || task.updatedAt || task.createdAt || task.assignDate;
-}
-
-function getNotificationId(task, waitingEnteredAt) {
-  return `${task._id}:${waitingEnteredAt || 'unknown'}`;
-}
-
-function getOverdueWaitingNotifications(tasks) {
-  const now = Date.now();
-
-  return tasks
-    .filter(isActiveTask)
-    .filter((task) => isWaitingStatus(task.status))
-    .map((task) => {
-      const waitingEnteredAt = getWaitingEnteredAt(task);
-      const waitingTime = getDateTime(waitingEnteredAt);
-      const daysWaiting = waitingTime ? Math.floor((now - waitingTime) / DAY_MS) : 0;
-
-      return {
-        id: getNotificationId(task, waitingEnteredAt),
-        task,
-        waitingEnteredAt,
-        daysWaiting,
-      };
-    })
-    .filter((notification) => notification.daysWaiting >= OVERDUE_DAYS)
-    .sort((first, second) => second.daysWaiting - first.daysWaiting);
-}
-
-function loadReadNotificationIds() {
-  try {
-    const value = window.localStorage.getItem(NOTIFICATION_READ_KEY);
-    const ids = JSON.parse(value || '[]');
-    return Array.isArray(ids) ? ids : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveReadNotificationIds(ids) {
-  window.localStorage.setItem(NOTIFICATION_READ_KEY, JSON.stringify(ids));
-}
+import { useAuth } from './features/auth/hooks/useAuth';
+import ClientView from './features/clients/components/ClientView';
+import ClientModal from './features/clients/components/ClientModal';
+import NotificationBell from './features/notifications/components/NotificationBell';
+import { useWaitingNotifications } from './features/notifications/hooks/useWaitingNotifications';
+import GlobalSearch from './features/search/components/GlobalSearch';
+import TaskCard from './features/tasks/components/TaskCard';
+import { getSearchableTasks, getTaskCountForTab, getTasksForTab } from './features/tasks/logic/taskFilters';
+import { sortTasksForTab } from './features/tasks/logic/taskSorting';
+import { useTasks } from './features/tasks/hooks/useTasks';
+import { useTaskNavigation, useTaskTab } from './features/tasks/hooks/useTaskNavigation';
+import { buildImportPreview, parseExcelFile } from './features/tasks/utils/excelImport';
+import { downloadJobNewsTemplate } from './features/tasks/utils/jobNewsTemplate';
+import { STATUS_MAP } from './shared/config/statusConfig';
+import { useToast } from './shared/hooks/useToast';
 
 export default function App() {
-  const [tasks, setTasks] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { tasks, setTasks, loading, error, setError, loadTasks } = useTasks();
+  const { toastMessage, showToast } = useToast();
+  const {
+    auth,
+    isAuthenticated,
+    isLoggingIn,
+    isLoginModalOpen,
+    loginError,
+    setIsLoginModalOpen,
+    openLogin,
+    handleLogin,
+    handleLogout,
+    requireLogin,
+    expireSession,
+  } = useAuth({ showToast });
+  const { notifications, unreadCount, markNotificationsRead } = useWaitingNotifications(tasks);
+  const { activeTabId, setActiveTabId } = useTaskTab();
   const [isSubmittingTask, setIsSubmittingTask] = useState(false);
-  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [isSubmittingClient, setIsSubmittingClient] = useState(false);
   const [isDeletingTask, setIsDeletingTask] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
   const [updatingStatusTaskId, setUpdatingStatusTaskId] = useState(null);
-  const [error, setError] = useState('');
-  const [activeTabId, setActiveTabId] = useState(getInitialTabId);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
+  const [editingClient, setEditingClient] = useState(null);
   const [historyTask, setHistoryTask] = useState(null);
   const [taskToDelete, setTaskToDelete] = useState(null);
-  const [toastMessage, setToastMessage] = useState('');
-  const [auth, setAuth] = useState(getStoredAuth);
-  const [loginError, setLoginError] = useState('');
-  const [readNotificationIds, setReadNotificationIds] = useState(loadReadNotificationIds);
-  const [pendingScrollTaskId, setPendingScrollTaskId] = useState(null);
-  const [highlightedTaskId, setHighlightedTaskId] = useState(null);
-  const taskRefs = useRef({});
-  const toastTimer = useRef();
-  const highlightTimer = useRef();
-
-  const showToast = useCallback((message) => {
-    window.clearTimeout(toastTimer.current);
-    setToastMessage(message);
-    toastTimer.current = window.setTimeout(() => setToastMessage(''), 3000);
-  }, []);
-
-  const loadTasks = useCallback(async () => {
-    try {
-      setError('');
-      setTasks(await getTasks());
-    } catch {
-      setError('Unable to load tasks.');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadTasks();
-    return () => {
-      window.clearTimeout(toastTimer.current);
-      window.clearTimeout(highlightTimer.current);
-    };
-  }, [loadTasks]);
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    params.set('tab', activeTabId);
-    const nextUrl = `${window.location.pathname}?${params.toString()}${window.location.hash}`;
-
-    window.history.replaceState(null, '', nextUrl);
-  }, [activeTabId]);
+  const [importPreview, setImportPreview] = useState(null);
+  const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
+  const [selectedTaskIds, setSelectedTaskIds] = useState([]);
+  const selectAllCheckboxRef = useRef(null);
 
   const isReportTab = activeTabId === REPORT_TAB.id;
-  const activeTab = isReportTab ? REPORT_TAB : TABS.find((tab) => tab.id === activeTabId) || TABS[0];
-  const notifications = getOverdueWaitingNotifications(tasks);
-  const unreadCount = notifications.filter((notification) => !readNotificationIds.includes(notification.id)).length;
+  const isClientTab = activeTabId === CLIENT_TAB.id;
+  const isSpecialTab = isReportTab || isClientTab;
+  const activeTab = isReportTab ? REPORT_TAB : isClientTab ? CLIENT_TAB : TABS.find((tab) => tab.id === activeTabId) || TABS[0];
   const showCompletionTime = activeTab.id === 'completed';
-  const visibleTasks = isReportTab ? [] : sortTasksForTab(
-    tasks.filter(isActiveTask).filter((task) => activeTab.statuses.includes(task.status)),
+  const visibleTasks = isSpecialTab ? [] : sortTasksForTab(
+    getTasksForTab(tasks, activeTab),
     activeTab.id
   );
-  const searchableTasks = tasks.filter(isActiveTask).filter((task) => getTaskTabId(task.status));
-  const getCount = (tab) => tasks.filter(isActiveTask).filter((task) => tab.statuses.includes(task.status)).length;
-  const isAuthenticated = Boolean(auth?.token);
+  const searchableTasks = getSearchableTasks(tasks);
+  const getCount = (tab) => getTaskCountForTab(tasks, tab);
+  const visibleTaskIds = new Set(visibleTasks.map((task) => task._id));
+  const selectedVisibleIds = selectedTaskIds.filter((taskId) => visibleTaskIds.has(taskId));
+  const selectedTaskIdSet = new Set(selectedVisibleIds);
+  const isAllVisibleSelected = visibleTasks.length > 0 && selectedVisibleIds.length === visibleTasks.length;
+  const { highlightedTaskId, scrollToTask, taskRefs } = useTaskNavigation({
+    tasks,
+    activeTabId,
+    setActiveTabId,
+    isReportTab: isSpecialTab,
+    visibleTasks,
+  });
+
+  useEffect(() => {
+    setSelectedTaskIds([]);
+  }, [activeTabId]);
+
+  useEffect(() => {
+    if (selectAllCheckboxRef.current) {
+      selectAllCheckboxRef.current.indeterminate = selectedVisibleIds.length > 0 && !isAllVisibleSelected;
+    }
+  }, [isAllVisibleSelected, selectedVisibleIds.length]);
 
   const closeTaskModal = () => {
     setIsModalOpen(false);
     setEditingTask(null);
   };
 
-  const handleLogin = async (username, password) => {
-    setIsLoggingIn(true);
-    setLoginError('');
+  const closeClientModal = () => {
+    if (isSubmittingClient) return;
+    setEditingClient(null);
+  };
+
+  const openImportDialog = () => {
+    if (!requireLogin('import tasks')) return;
+    setIsImportDialogOpen(true);
+  };
+
+  const handleImportFileSelection = async (file) => {
+    if (!file) return;
+
     try {
-      const nextAuth = await login(username, password);
-      setAuth(nextAuth);
-      setIsLoginModalOpen(false);
-      showToast(`Logged in as ${nextAuth.user?.label || nextAuth.user?.username || 'User'}.`);
-    } catch (error) {
-      setLoginError(error.message || 'Unable to login.');
-    } finally {
-      setIsLoggingIn(false);
+      setError('');
+      const parsedImport = await parseExcelFile(file);
+      setImportPreview({
+        ...buildImportPreview(parsedImport, tasks),
+        fileName: file.name,
+      });
+    } catch {
+      setError('Unable to read this Excel file. Please select a valid .xlsx or .xls file.');
     }
   };
 
-  const handleLogout = () => {
-    clearStoredAuth();
-    setAuth(null);
-    showToast('Logged out. Continuing as Guest.');
+  const closeImportDialog = () => {
+    if (!isImporting) {
+      setImportPreview(null);
+      setIsImportDialogOpen(false);
+    }
   };
 
-  const requireLogin = (action) => {
-    if (isAuthenticated) return true;
+  const confirmImport = async () => {
+    if (!importPreview || !requireLogin('import tasks')) return;
 
-    setLoginError('');
-    setIsLoginModalOpen(true);
-    showToast(`Please login to ${action}.`);
-    return false;
+    setIsImporting(true);
+    try {
+      const result = await importTasks(importPreview.tasks);
+      await loadTasks();
+      setImportPreview(null);
+      setIsImportDialogOpen(false);
+      showToast(`Imported ${result.importedCount} task${result.importedCount === 1 ? '' : 's'}${result.skippedCount ? `; ${result.skippedCount} duplicate${result.skippedCount === 1 ? '' : 's'} skipped.` : '.'}`);
+    } catch (requestError) {
+      handleRequestError(requestError, 'Unable to import tasks.');
+    } finally {
+      setIsImporting(false);
+    }
   };
 
   const handleRequestError = (requestError, fallbackMessage) => {
     if (requestError?.status === 401) {
-      setAuth(null);
-      setLoginError('');
-      setIsLoginModalOpen(true);
-      showToast('Session expired. Please login again.');
+      expireSession();
       return;
     }
 
     setError(fallbackMessage);
   };
-
-  const markNotificationsRead = () => {
-    if (notifications.length === 0) return;
-
-    setReadNotificationIds((currentIds) => {
-      const nextIds = Array.from(new Set([...currentIds, ...notifications.map((notification) => notification.id)]));
-      saveReadNotificationIds(nextIds);
-      return nextIds;
-    });
-  };
-
-  const scrollToTask = (taskOrId) => {
-    const task = typeof taskOrId === 'string'
-      ? tasks.find((item) => item._id === taskOrId)
-      : taskOrId;
-    const targetTabId = getTaskTabId(task?.status);
-
-    if (!task || !targetTabId) return;
-
-    setActiveTabId(targetTabId);
-    setPendingScrollTaskId(task._id);
-  };
-
-  useEffect(() => {
-    if (!pendingScrollTaskId || isReportTab) return;
-
-    const taskElement = taskRefs.current[pendingScrollTaskId];
-    if (!taskElement) return;
-
-    taskElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    setHighlightedTaskId(pendingScrollTaskId);
-    setPendingScrollTaskId(null);
-    window.clearTimeout(highlightTimer.current);
-    highlightTimer.current = window.setTimeout(() => setHighlightedTaskId(null), 2000);
-  }, [activeTabId, isReportTab, pendingScrollTaskId, visibleTasks]);
 
   const handleTaskSubmit = async (taskData) => {
     if (!requireLogin(editingTask ? 'update tasks' : 'add tasks')) return;
@@ -284,12 +178,29 @@ export default function App() {
     }
   };
 
+  const handleClientSubmit = async ({ clientName, updates }) => {
+    if (!requireLogin('edit clients') || Object.keys(updates).length === 0) return;
+
+    setIsSubmittingClient(true);
+    try {
+      const result = await updateClientTasks(clientName, updates);
+      await loadTasks();
+      setEditingClient(null);
+      showToast(result.updatedCount ? `Client updated across ${result.updatedCount} task${result.updatedCount === 1 ? '' : 's'}.` : 'No client changes were needed.');
+    } catch (requestError) {
+      handleRequestError(requestError, 'Unable to update client.');
+    } finally {
+      setIsSubmittingClient(false);
+    }
+  };
+
   const handleStatusChange = async (taskId, status) => {
     if (!requireLogin('change task status')) return;
 
     setUpdatingStatusTaskId(taskId);
     try {
       await updateTask(taskId, { status });
+      setSelectedTaskIds([]);
       if (status === 'Lodged/Completed') showToast('Task status updated to Lodged/Completed.');
       await loadTasks();
     } catch (requestError) {
@@ -297,6 +208,23 @@ export default function App() {
     } finally {
       setUpdatingStatusTaskId(null);
     }
+  };
+
+  const toggleTaskSelection = (taskId) => {
+    setSelectedTaskIds((currentIds) => (
+      currentIds.includes(taskId)
+        ? currentIds.filter((id) => id !== taskId)
+        : [...currentIds, taskId]
+    ));
+  };
+
+  const toggleAllTaskSelection = () => {
+    setSelectedTaskIds(isAllVisibleSelected ? [] : visibleTasks.map((task) => task._id));
+  };
+
+  const requestBulkDelete = (taskIds) => {
+    if (taskIds.length === 0 || !requireLogin('delete tasks')) return;
+    setTaskToDelete({ ids: taskIds });
   };
 
   const confirmDelete = async () => {
@@ -308,8 +236,14 @@ export default function App() {
 
     setIsDeletingTask(true);
     try {
-      await updateTask(taskToDelete.id, { deleted: true });
-      showToast('Task deleted successfully.');
+      const taskIds = taskToDelete.ids || [taskToDelete.id];
+      if (taskIds.length === 1) {
+        await updateTask(taskIds[0], { deleted: true });
+      } else {
+        await deleteTasks(taskIds);
+      }
+      setSelectedTaskIds([]);
+      showToast(`${taskIds.length} task${taskIds.length === 1 ? '' : 's'} deleted successfully.`);
       await loadTasks();
     } catch (requestError) {
       handleRequestError(requestError, 'Unable to delete task.');
@@ -329,29 +263,45 @@ export default function App() {
           {isAuthenticated ? (
             <button className="button-secondary auth-button" type="button" onClick={handleLogout}>Logout {auth.user?.label || auth.user?.username}</button>
           ) : (
-            <button className="button-secondary auth-button" type="button" onClick={() => { setLoginError(''); setIsLoginModalOpen(true); }}>Login</button>
+            <button className="button-secondary auth-button" type="button" onClick={openLogin}>Login</button>
           )}
           <button className="button-primary" type="button" onClick={() => { if (!requireLogin('add tasks')) return; setEditingTask(null); setIsModalOpen(true); }}>Add Task</button>
         </div>
       </header>
       <div className="main-layout">
-        <aside className="sidebar"><h2>Tabs</h2>{[...TABS, REPORT_TAB].map((tab) => <button key={tab.id} type="button" className={`sidebar-button ${activeTab.id === tab.id ? 'active' : ''}`} onClick={() => setActiveTabId(tab.id)}>{tab.label}{tab.id !== REPORT_TAB.id && <span className="task-count">({getCount(tab)})</span>}</button>)}</aside>
+        <aside className="sidebar">
+          <h2>Tabs</h2>
+          {[...TABS, REPORT_TAB, CLIENT_TAB].map((tab) => <button key={tab.id} type="button" className={`sidebar-button ${activeTab.id === tab.id ? 'active' : ''}`} onClick={() => { setSelectedTaskIds([]); setActiveTabId(tab.id); }}>{tab.label}{TABS.some((taskTab) => taskTab.id === tab.id) && <span className="task-count">({getCount(tab)})</span>}</button>)}
+          <div className="sidebar-import">
+            <button className="sidebar-button import-button" type="button" onClick={openImportDialog}>Import Excel</button>
+          </div>
+        </aside>
         <section className="content">
           {error && <p className="error" role="alert">{error}</p>}
           {isReportTab ? (
             loading ? <p className="empty">Loading tasks...</p> : <ReportView tasks={tasks} />
+          ) : isClientTab ? (
+            loading ? <p className="empty">Loading clients...</p> : <ClientView tasks={tasks} onEdit={setEditingClient} onRequireLogin={requireLogin} isReadOnly={!isAuthenticated} />
           ) : (
             <>
-              <div className="content-header"><h2>{activeTab.title}</h2><span className="task-count">({visibleTasks.length})</span></div>
-              {loading ? <p className="empty">Loading tasks...</p> : <div className="task-list">{visibleTasks.length === 0 ? <p className="empty">No tasks found.</p> : <table className={`task-table ${showCompletionTime ? 'has-completion-time' : ''}`}><thead><tr><th>No</th><th>Assign Date</th><th>Software</th><th>Client</th><th>Task</th><th>Outcome Achieved</th><th>Note</th><th className="payroll-column">Payroll</th>{showCompletionTime && <th>Completion Date</th>}<th className="task-status-column">Status</th></tr></thead><tbody>{visibleTasks.map((task, index) => <TaskCard key={task._id} taskRef={(element) => { taskRefs.current[task._id] = element; }} index={index + 1} task={task} statusMap={STATUS_MAP} onStatusChange={handleStatusChange} onDelete={(id, title) => setTaskToDelete({ id, title })} onEdit={(task) => { if (!requireLogin('edit tasks')) return; setEditingTask(task); setIsModalOpen(true); }} onViewHistory={setHistoryTask} onRequireLogin={requireLogin} showCompletionTime={showCompletionTime} isStatusUpdating={updatingStatusTaskId === task._id} isHighlighted={highlightedTaskId === task._id} isReadOnly={!isAuthenticated} />)}</tbody></table>}</div>}
+              <div className="content-header">
+                <div className="flex gap-1 content-title"><h2>{activeTab.title}</h2><span className="task-count">({visibleTasks.length})</span></div>
+                <div className="bulk-actions">
+                  <button className="bulk-delete-button" type="button" disabled={selectedVisibleIds.length === 0} onClick={() => requestBulkDelete(selectedVisibleIds)}>Delete selected ({selectedVisibleIds.length})</button>
+                  <button className="bulk-delete-button" type="button" disabled={visibleTasks.length === 0} onClick={() => requestBulkDelete(visibleTasks.map((task) => task._id))}>Delete all ({visibleTasks.length})</button>
+                </div>
+              </div>
+              {loading ? <p className="empty">Loading tasks...</p> : <div className="task-list">{visibleTasks.length === 0 ? <p className="empty">No tasks found.</p> : <table className={`task-table ${showCompletionTime ? 'has-completion-time' : ''}`}><thead><tr><th className="task-select-column"><input ref={selectAllCheckboxRef} type="checkbox" checked={isAllVisibleSelected} onChange={toggleAllTaskSelection} aria-label={`Select all tasks in ${activeTab.title}`} /></th><th>No</th><th>Assign Date</th><th>Software</th><th>Client</th><th>Task</th><th>Outcome Achieved</th><th>Note</th><th className="payroll-column">Payroll</th><th>Property</th><th>Motor Vehicle</th>{showCompletionTime && <th>Completion Date</th>}<th className="task-status-column">Status</th></tr></thead><tbody>{visibleTasks.map((task, index) => <TaskCard key={task._id} taskRef={(element) => { taskRefs.current[task._id] = element; }} index={index + 1} task={task} isSelected={selectedTaskIdSet.has(task._id)} onSelect={toggleTaskSelection} statusMap={STATUS_MAP} onStatusChange={handleStatusChange} onDelete={(id, title) => setTaskToDelete({ ids: [id], title })} onEdit={(task) => { if (!requireLogin('edit tasks')) return; setEditingTask(task); setIsModalOpen(true); }} onViewHistory={setHistoryTask} onRequireLogin={requireLogin} showCompletionTime={showCompletionTime} hideEmptyOutcomeProgress={activeTab.id === 'completed'} isStatusUpdating={updatingStatusTaskId === task._id} isHighlighted={highlightedTaskId === task._id} isReadOnly={!isAuthenticated} />)}</tbody></table>}</div>}
             </>
           )}
         </section>
       </div>
       <TaskModal isOpen={isModalOpen} onClose={closeTaskModal} onSubmit={handleTaskSubmit} initialValues={editingTask || undefined} submitLabel={editingTask ? 'Update Task' : 'Create Task'} mode={editingTask ? 'edit' : 'create'} isSubmitting={isSubmittingTask} />
+      <ClientModal isOpen={Boolean(editingClient)} client={editingClient} onClose={closeClientModal} onSubmit={handleClientSubmit} isSubmitting={isSubmittingClient} />
+      <ImportTasksModal isOpen={isImportDialogOpen} preview={importPreview} onClose={closeImportDialog} onConfirm={confirmImport} onFileSelected={handleImportFileSelection} onDownloadTemplate={downloadJobNewsTemplate} isImporting={isImporting} />
       <LoginModal isOpen={isLoginModalOpen} onClose={() => setIsLoginModalOpen(false)} onSubmit={handleLogin} isSubmitting={isLoggingIn} error={loginError} />
       <TaskHistoryModal isOpen={Boolean(historyTask)} task={historyTask} onClose={() => setHistoryTask(null)} />
-      <DeleteConfirmModal isOpen={Boolean(taskToDelete)} taskTitle={taskToDelete?.title} onConfirm={confirmDelete} onCancel={() => setTaskToDelete(null)} isDeleting={isDeletingTask} />
+      <DeleteConfirmModal isOpen={Boolean(taskToDelete)} taskTitle={taskToDelete?.title} taskCount={taskToDelete?.ids?.length || 1} onConfirm={confirmDelete} onCancel={() => setTaskToDelete(null)} isDeleting={isDeletingTask} />
       {updatingStatusTaskId && (
         <div className="status-loading-overlay" role="status" aria-live="polite">
           <div className="status-loading-card">

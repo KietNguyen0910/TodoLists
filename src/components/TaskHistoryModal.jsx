@@ -17,9 +17,10 @@ function formatDateTime(dateString) {
 }
 
 function formatValue(value) {
-  if (Array.isArray(value)) return value.length ? value.join(', ') : '_';
+  if (Array.isArray(value)) return value.length ? value.map(formatValue).join(', ') : '_';
   if (typeof value === 'boolean') return value ? 'Yes' : 'No';
   if (value === null || value === undefined || value === '') return '_';
+  if (typeof value === 'object' && value.address) return `${value.address} (${value.type === 'Investment' ? 'Investment' : 'Primary'})`;
   return String(value);
 }
 

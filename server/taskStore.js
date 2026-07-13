@@ -35,6 +35,16 @@ const normalizeOutcomes = (value) => (Array.isArray(value) ? value : [value])
   .map((outcome) => outcome.trim())
   .filter(Boolean);
 const normalizePayroll = (value) => (typeof value === 'boolean' ? value : null);
+const normalizeProperties = (value) => (Array.isArray(value) ? value : [])
+  .filter((property) => property && typeof property.address === 'string' && property.address.trim())
+  .map((property) => ({
+    address: property.address.trim(),
+    type: property.type === 'Investment' ? 'Investment' : 'Primary',
+  }));
+const normalizeMotorVehicles = (value) => Array.from(new Set((Array.isArray(value) ? value : [])
+  .filter((vehicle) => typeof vehicle === 'string')
+  .map((vehicle) => vehicle.trim())
+  .filter(Boolean)));
 
 const AUDIT_FIELDS = [
   { field: 'title', label: 'Client', normalize: (value) => value || '' },
@@ -42,6 +52,8 @@ const AUDIT_FIELDS = [
   { field: 'outcomeAchieved', label: 'Outcome Achieved', normalize: normalizeOutcomes },
   { field: 'software', label: 'Software', normalize: (value) => value || '' },
   { field: 'payroll', label: 'Payroll', normalize: normalizePayroll },
+  { field: 'properties', label: 'Property', normalize: normalizeProperties },
+  { field: 'motorVehicles', label: 'Motor Vehicle', normalize: normalizeMotorVehicles },
   { field: 'assignDate', label: 'Assign Date', normalize: (value) => value || '' },
   { field: 'deadline', label: 'Deadline', normalize: (value) => value || '' },
   { field: 'notes', label: 'Note', normalize: (value) => value || '' },
@@ -79,6 +91,8 @@ function serializeTask(task) {
     description: task.description || '',
     software: task.software || '',
     payroll: typeof task.payroll === 'boolean' ? task.payroll : null,
+    properties: normalizeProperties(task.properties),
+    motorVehicles: normalizeMotorVehicles(task.motorVehicles),
     outcomeAchieved: Array.isArray(task.outcomeAchieved)
       ? task.outcomeAchieved
       : task.outcomeAchieved ? [task.outcomeAchieved] : [],
@@ -103,19 +117,21 @@ function getAllTasks() {
     .map(serializeTask);
 }
 
-function createTask({ title, description, software, payroll, outcomeAchieved, assignDate, deadline, notes, status, statusHistory, auditLogs }) {
+function createTask({ title, description, software, payroll, properties, motorVehicles, outcomeAchieved, assignDate, deadline, notes, status, completionDate, statusHistory, auditLogs }) {
   const task = {
     _id: randomUUID(),
     title,
     description: description || '',
     software: software || '',
     payroll: normalizePayroll(payroll),
+    properties: normalizeProperties(properties),
+    motorVehicles: normalizeMotorVehicles(motorVehicles),
     outcomeAchieved: Array.isArray(outcomeAchieved) ? outcomeAchieved : outcomeAchieved ? [outcomeAchieved] : [],
     assignDate: assignDate || '',
     deadline: deadline || '',
     notes: notes || '',
     status,
-    completionDate: status === 'Lodged/Completed' ? new Date() : null,
+    completionDate: completionDate || (status === 'Lodged/Completed' ? new Date() : null),
     statusHistory: statusHistory || [{ status, changedAt: new Date() }],
     auditLogs: auditLogs || [],
     deleted: false,

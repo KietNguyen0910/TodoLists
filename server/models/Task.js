@@ -21,6 +21,25 @@ const taskSchema = new mongoose.Schema(
       type: Boolean,
       default: null,
     },
+    properties: {
+      type: [{
+        address: {
+          type: String,
+          trim: true,
+          required: true,
+        },
+        type: {
+          type: String,
+          enum: ['Primary', 'Investment'],
+          default: 'Primary',
+        },
+      }],
+      default: [],
+    },
+    motorVehicles: {
+      type: [String],
+      default: [],
+    },
     outcomeAchieved: {
       type: [String],
       default: [],
@@ -86,6 +105,11 @@ const taskSchema = new mongoose.Schema(
       },
     ],
     deleted: {
+      type: Boolean,
+      default: false,
+    },
+    // Keep compatibility with tasks created before `deleted` was introduced.
+    isDeleted: {
       type: Boolean,
       default: false,
     },

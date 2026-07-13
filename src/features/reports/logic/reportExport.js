@@ -2,7 +2,7 @@ import * as XLSX from 'xlsx';
 import { formatDateTime } from '../../../shared/utils/dateUtils';
 import { REPORT_TYPES } from '../utils/reportFormatters';
 
-export function exportReportRows(rows, reportType, fromDate, toDate) {
+export function exportReportRows(rows, reportType, fromDate, toDate, filename) {
   if (!rows.length) return;
 
   const data = rows.map((row) => ({
@@ -28,5 +28,5 @@ export function exportReportRows(rows, reportType, fromDate, toDate) {
   ];
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, `${REPORT_TYPES[reportType]} Report`);
-  XLSX.writeFile(workbook, `task-${reportType}-report-${fromDate}-to-${toDate}.xlsx`);
+  XLSX.writeFile(workbook, filename || `task-${reportType}-report-${fromDate}-to-${toDate}.xlsx`);
 }

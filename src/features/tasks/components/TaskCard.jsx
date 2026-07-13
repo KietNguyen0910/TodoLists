@@ -7,6 +7,8 @@ export default function TaskCard({
   index,
   task,
   taskRef,
+  isSelected = false,
+  onSelect,
   statusMap,
   onStatusChange,
   onDelete,
@@ -14,6 +16,7 @@ export default function TaskCard({
   onViewHistory,
   onRequireLogin,
   showCompletionTime = false,
+  hideEmptyOutcomeProgress = false,
   isStatusUpdating = false,
   isHighlighted = false,
   isReadOnly = false,
@@ -23,6 +26,8 @@ export default function TaskCard({
     ? task.outcomeAchieved
     : task.outcomeAchieved ? [task.outcomeAchieved] : [];
   const outcomeProgress = getOutcomeProgress(outcomes);
+  const properties = Array.isArray(task.properties) ? task.properties : [];
+  const motorVehicles = Array.isArray(task.motorVehicles) ? task.motorVehicles : [];
   const handleProtectedAction = (action, callback) => {
     if (isReadOnly) {
       onRequireLogin?.(action);
@@ -50,14 +55,24 @@ export default function TaskCard({
 
   return (
     <tr ref={taskRef} className={`task-row ${isHighlighted ? 'is-highlighted' : ''}`} onDoubleClick={handleRowDoubleClick} style={{ backgroundColor: hexToRgba(statusConfig.color || '#ffffff', 0.3) }}>
+      <td className="task-select-cell">
+        <input
+          type="checkbox"
+          checked={isSelected}
+          aria-label={`Select ${task.title || 'task'}`}
+          onChange={() => onSelect?.(task._id)}
+        />
+      </td>
       <td className="cursor-pointer">{index}</td>
       <td className="cursor-pointer">{formatTaskDate(task.assignDate)}</td>
       <td className="cursor-pointer">{task.software ? <span className="software-value" style={{ color: getSoftwareColor(task.software) }}>{task.software}</span> : '_'}</td>
       <td className="cursor-pointer">{task.title || '_'}</td>
       <td className="cursor-pointer">{task.description || '_'}</td>
-      <td className="cursor-pointer">{outcomes.length ? <><div className="outcome-progress-label">{outcomeProgress.label}</div><ul className="outcome-table-list">{outcomes.map((outcome) => <li key={outcome}>+ {outcome}</li>)}</ul></> : '_'}</td>
+      <td className="cursor-pointer">{outcomes.length ? <>{!(hideEmptyOutcomeProgress && outcomeProgress.completedPhases === 0) && <div className="outcome-progress-label">{outcomeProgress.label}</div>}<ul className="outcome-table-list">{outcomes.map((outcome) => <li key={outcome}>+ {outcome}</li>)}</ul></> : '_'}</td>
       <td className="cursor-pointer">{task.notes || '_'}</td>
       <td className="cursor-pointer payroll-cell">{formatPayroll(task.payroll)}</td>
+      <td className="cursor-pointer property-cell">{properties.length ? properties.map((property, propertyIndex) => <span className="property-table-value" key={`${property.address}-${propertyIndex}`}>{property.address} <em>{property.type === 'Investment' ? 'Investment' : 'Primary'}</em></span>) : '_'}</td>
+      <td className="cursor-pointer motor-vehicle-cell">{motorVehicles.length ? motorVehicles.map((vehicle) => <span className="motor-vehicle-table-tag" key={vehicle}>{vehicle}</span>) : '_'}</td>
       {showCompletionTime && <td className="completion-time-cell">{formatDateTime(task.completionDate)}</td>}
       <td className="task-status-column">
         <div className="task-status-cell">

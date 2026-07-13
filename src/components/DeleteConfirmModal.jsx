@@ -1,5 +1,6 @@
-export default function DeleteConfirmModal({ isOpen, taskTitle, onConfirm, onCancel, isDeleting = false }) {
+export default function DeleteConfirmModal({ isOpen, taskTitle, taskCount = 1, onConfirm, onCancel, isDeleting = false }) {
   if (!isOpen) return null;
+  const isBulkDelete = taskCount > 1;
   const handleOverlayClick = (event) => {
     if (event.target === event.currentTarget && !isDeleting) onCancel();
   };
@@ -8,13 +9,13 @@ export default function DeleteConfirmModal({ isOpen, taskTitle, onConfirm, onCan
     <div className="modal-overlay" role="presentation" onMouseDown={handleOverlayClick}>
       <div className="modal-card" role="dialog" aria-modal="true" aria-labelledby="delete-task-title">
         <div className="modal-header">
-          <h2 id="delete-task-title">Delete Task</h2>
+          <h2 id="delete-task-title">Delete {isBulkDelete ? 'Tasks' : 'Task'}</h2>
           <button className="modal-close" type="button" aria-label="Close" onClick={onCancel} disabled={isDeleting}>
             ×
           </button>
         </div>
         <div className="modal-content">
-          <p>Are you sure you want to delete this task?</p>
+          <p>Are you sure you want to delete {isBulkDelete ? `${taskCount} selected tasks` : 'this task'}?</p>
           {taskTitle && <p className="task-title-display"><strong>{taskTitle}</strong></p>}
         </div>
         <div className="modal-actions">
