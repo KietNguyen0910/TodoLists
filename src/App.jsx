@@ -15,7 +15,7 @@ import { useWaitingNotifications } from './features/notifications/hooks/useWaiti
 import GlobalSearch from './features/search/components/GlobalSearch';
 import TaskCard from './features/tasks/components/TaskCard';
 import { getSearchableTasks, getTaskCountForTab, getTasksForTab } from './features/tasks/logic/taskFilters';
-import { sortTasksForTab } from './features/tasks/logic/taskSorting';
+import { getDefaultTaskSortMode, sortTasksForTab, TASK_SORT_MODES } from './features/tasks/logic/taskSorting';
 import { useTasks } from './features/tasks/hooks/useTasks';
 import { useTaskNavigation, useTaskTab } from './features/tasks/hooks/useTaskNavigation';
 import { buildImportPreview, parseExcelFile } from './features/tasks/utils/excelImport';
@@ -54,6 +54,7 @@ export default function App() {
   const [importPreview, setImportPreview] = useState(null);
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const [selectedTaskIds, setSelectedTaskIds] = useState([]);
+  const [taskSortMode, setTaskSortMode] = useState('');
   const selectAllCheckboxRef = useRef(null);
 
   const isReportTab = activeTabId === REPORT_TAB.id;
@@ -61,9 +62,12 @@ export default function App() {
   const isSpecialTab = isReportTab || isClientTab;
   const activeTab = isReportTab ? REPORT_TAB : isClientTab ? CLIENT_TAB : TABS.find((tab) => tab.id === activeTabId) || TABS[0];
   const showCompletionTime = activeTab.id === 'completed';
+  const isWaitingTab = activeTab.id.startsWith('waiting-');
+  const activeTaskSortMode = taskSortMode || getDefaultTaskSortMode(activeTab.id);
   const visibleTasks = isSpecialTab ? [] : sortTasksForTab(
     getTasksForTab(tasks, activeTab),
-    activeTab.id
+    activeTab.id,
+    activeTaskSortMode
   );
   const searchableTasks = getSearchableTasks(tasks);
   const getCount = (tab) => getTaskCountForTab(tasks, tab);
@@ -81,6 +85,7 @@ export default function App() {
 
   useEffect(() => {
     setSelectedTaskIds([]);
+    setTaskSortMode('');
   }, [activeTabId]);
 
   useEffect(() => {
@@ -290,6 +295,17 @@ export default function App() {
                   <button className="bulk-delete-button" type="button" disabled={selectedVisibleIds.length === 0} onClick={() => requestBulkDelete(selectedVisibleIds)}>Delete selected ({selectedVisibleIds.length})</button>
                   <button className="bulk-delete-button" type="button" disabled={visibleTasks.length === 0} onClick={() => requestBulkDelete(visibleTasks.map((task) => task._id))}>Delete all ({visibleTasks.length})</button>
                 </div>
+              </div>
+              <div className="task-table-toolbar">
+                <label>Sort by
+                  <select value={activeTaskSortMode} onChange={(event) => setTaskSortMode(event.target.value)}>
+                    <option value={TASK_SORT_MODES.STATUS}>{isWaitingTab ? 'Status (grouped)' : 'Status (In Progress first)'}</option>
+                    <option value={TASK_SORT_MODES.DATE_DESC}>{showCompletionTime ? 'Completion date: Newest first' : 'Assign date: Newest first'}</option>
+                    <option value={TASK_SORT_MODES.DATE_ASC}>{showCompletionTime ? 'Completion date: Oldest first' : 'Assign date: Oldest first'}</option>
+                    <option value={TASK_SORT_MODES.CLIENT}>Client name (A-Z)</option>
+                    <option value={TASK_SORT_MODES.TASK}>Task (A-Z)</option>
+                  </select>
+                </label>
               </div>
               {loading ? <p className="empty">Loading tasks...</p> : <div className="task-list">{visibleTasks.length === 0 ? <p className="empty">No tasks found.</p> : <table className={`task-table ${showCompletionTime ? 'has-completion-time' : ''}`}><thead><tr><th className="task-select-column"><input ref={selectAllCheckboxRef} type="checkbox" checked={isAllVisibleSelected} onChange={toggleAllTaskSelection} aria-label={`Select all tasks in ${activeTab.title}`} /></th><th>No</th><th>Assign Date</th><th>Software</th><th>Client</th><th>Task</th><th className="payroll-column">Payroll</th><th>Property</th><th>Motor Vehicle</th><th className="outcome-column">Outcome Achieved</th><th className="note-column">Note</th>{showCompletionTime && <th>Completion Date</th>}<th className="task-status-column">Status</th></tr></thead><tbody>{visibleTasks.map((task, index) => <TaskCard key={task._id} taskRef={(element) => { taskRefs.current[task._id] = element; }} index={index + 1} task={task} isSelected={selectedTaskIdSet.has(task._id)} onSelect={toggleTaskSelection} statusMap={STATUS_MAP} onStatusChange={handleStatusChange} onDelete={(id, title) => setTaskToDelete({ ids: [id], title })} onEdit={(task) => { if (!requireLogin('edit tasks')) return; setEditingTask(task); setIsModalOpen(true); }} onViewHistory={setHistoryTask} onRequireLogin={requireLogin} showCompletionTime={showCompletionTime} hideEmptyOutcomeProgress={activeTab.id === 'completed'} isStatusUpdating={updatingStatusTaskId === task._id} isHighlighted={highlightedTaskId === task._id} isReadOnly={!isAuthenticated} />)}</tbody></table>}</div>}
             </>

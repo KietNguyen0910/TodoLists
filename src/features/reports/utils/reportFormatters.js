@@ -1,4 +1,5 @@
 import { formatDateTime } from '../../../shared/utils/dateUtils';
+import { getStatusLabel } from '../../../shared/config/statusConfig';
 import { formatValue } from '../../../shared/utils/valueFormatters';
 
 export const ACTION_LABELS = {
@@ -16,7 +17,10 @@ export function formatDetail(changes = []) {
   if (!changes.length) return '_';
 
   return changes
-    .map((change) => `${change.label || change.field}: ${formatValue(change.from)} -> ${formatValue(change.to)}`)
+    .map((change) => {
+      const formatChangeValue = (value) => (change.field === 'status' ? getStatusLabel(value) : formatValue(value));
+      return `${change.label || change.field}: ${formatChangeValue(change.from)} -> ${formatChangeValue(change.to)}`;
+    })
     .join('\n');
 }
 

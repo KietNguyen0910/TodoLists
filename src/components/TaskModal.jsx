@@ -3,7 +3,7 @@ import { OUTCOME_PHASES } from '../features/outcomes/config/outcomeConfig';
 import { getOutcomeProgress } from '../features/outcomes/logic/outcomeProgress';
 import OutcomeMultiSelect from '../features/outcomes/components/OutcomeMultiSelect';
 import { getSoftwareColor } from '../shared/config/softwareConfig';
-import { STATUS_OPTIONS } from '../shared/config/statusConfig';
+import { getStatusLabel, STATUS_OPTIONS } from '../shared/config/statusConfig';
 import { exportTask } from '../features/tasks/utils/taskExport';
 import TagInput from '../features/tasks/components/TagInput';
 
@@ -119,11 +119,14 @@ export default function TaskModal({ isOpen, onClose, onSubmit, initialValues, su
           </div>
           <div className="form-field">
             <span>Property</span>
-            <input value={propertyAddress} placeholder="Enter property address" disabled={isSubmitting} onChange={(event) => setPropertyAddress(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); addProperty(); } }} />
-            <div className="radio-group" role="radiogroup" aria-label="Property type">
-              <label className={`radio-option ${propertyType === 'Primary' ? 'is-selected' : ''}`}><input type="radio" name="propertyType" checked={propertyType === 'Primary'} disabled={isSubmitting} onChange={() => setPropertyType('Primary')} /> Primary</label>
-              <label className={`radio-option ${propertyType === 'Investment' ? 'is-selected' : ''}`}><input type="radio" name="propertyType" checked={propertyType === 'Investment'} disabled={isSubmitting} onChange={() => setPropertyType('Investment')} /> Investment</label>
+            <div className="flex gap-3">
+              <input value={propertyAddress} placeholder="Enter property address" disabled={isSubmitting} onChange={(event) => setPropertyAddress(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); addProperty(); } }} />
+              <div className="flex gap-1 radio-group shrink-0" role="radiogroup" aria-label="Property type">
+                <label className={`radio-option ${propertyType === 'Primary' ? 'is-selected' : ''}`}><input type="radio" name="propertyType" checked={propertyType === 'Primary'} disabled={isSubmitting} onChange={() => setPropertyType('Primary')} /> Primary</label>
+                <label className={`radio-option ${propertyType === 'Investment' ? 'is-selected' : ''}`}><input type="radio" name="propertyType" checked={propertyType === 'Investment'} disabled={isSubmitting} onChange={() => setPropertyType('Investment')} /> Investment</label>
+              </div>
             </div>
+
             <button className="button-secondary property-add-button" type="button" disabled={isSubmitting || !propertyAddress.trim()} onClick={addProperty}>Add property</button>
             {form.properties.length > 0 && <ul className="property-list">{form.properties.map((property, index) => <li key={`${property.address}-${index}`}><span><strong>{property.address}</strong><em>{property.type}</em></span><button type="button" aria-label={`Remove ${property.address}`} disabled={isSubmitting} onClick={() => removeProperty(index)}>×</button></li>)}</ul>}
           </div>
@@ -133,8 +136,8 @@ export default function TaskModal({ isOpen, onClose, onSubmit, initialValues, su
           </div>
           <label>Assign Date<input type="date" name="assignDate" value={form.assignDate} onChange={handleChange} /></label>
           <label>Deadline<input type="date" name="deadline" value={form.deadline} onChange={handleChange} /></label>
-          <label>Note<textarea name="notes" value={form.notes} onChange={handleChange} rows="3" /></label>
-          <label>Status<select name="status" value={form.status} onChange={handleChange}>{STATUS_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}</select></label>
+          <label>Note<textarea name="notes" value={form.notes} onChange={handleChange} rows="6" /></label>
+          <label>Status<select name="status" value={form.status} onChange={handleChange}>{STATUS_OPTIONS.map((option) => <option key={option} value={option}>{getStatusLabel(option)}</option>)}</select></label>
           <div className="modal-actions">
             {mode === 'edit' && <button type="button" className="button-secondary" onClick={() => exportTask({ ...initialValues, ...form })} disabled={isSubmitting}>Export</button>}
             <button type="button" className="button-secondary" onClick={onClose} disabled={isSubmitting}>Cancel</button>

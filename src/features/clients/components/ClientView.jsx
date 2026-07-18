@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { getSoftwareColor } from '../../../shared/config/softwareConfig';
 import { formatPayroll } from '../../../shared/utils/valueFormatters';
 
 function getClientRecords(tasks) {
@@ -66,6 +67,16 @@ function ValueList({ values, empty = '_' }) {
   return values.length ? values.join(', ') : empty;
 }
 
+function SoftwareValueList({ values }) {
+  if (!values.length) return '_';
+
+  return values.map((software, index) => (
+    <span className="client-software-value" key={software} style={{ color: getSoftwareColor(software) }}>
+      {software}{index < values.length - 1 ? ', ' : ''}
+    </span>
+  ));
+}
+
 export default function ClientView({ tasks, onEdit, onRequireLogin, isReadOnly = false }) {
   const [expandedClientKey, setExpandedClientKey] = useState(null);
   const [clientSearch, setClientSearch] = useState('');
@@ -103,7 +114,7 @@ export default function ClientView({ tasks, onEdit, onRequireLogin, isReadOnly =
                 {isExpanded && (
                   <>
                     <dl className="client-details">
-                      <div><dt>Software</dt><dd><ValueList values={client.software} /></dd></div>
+                      <div><dt>Software</dt><dd><SoftwareValueList values={client.software} /></dd></div>
                       <div><dt>Payroll</dt><dd><ValueList values={client.payroll.map(formatPayroll)} /></dd></div>
                       <div><dt>Property</dt><dd>{client.properties.length ? client.properties.map((property) => <span className="client-property-value" key={`${property.address}-${property.type}`}>{property.address}<em>{property.type}</em></span>) : '_'}</dd></div>
                       <div><dt>Motor Vehicle</dt><dd>{client.motorVehicles.length ? client.motorVehicles.map((vehicle) => <span className="motor-vehicle-table-tag" key={vehicle}>{vehicle}</span>) : '_'}</dd></div>

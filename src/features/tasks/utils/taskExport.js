@@ -1,4 +1,5 @@
 import { exportReportRows } from '../../reports/logic/reportExport';
+import { getStatusLabel } from '../../../shared/config/statusConfig';
 
 function getExportDate(task) {
   return task.updatedAt || task.createdAt || task.assignDate || new Date().toISOString();
@@ -24,7 +25,7 @@ export function exportTask(task) {
       client,
       taskName,
       software: task.software || '_',
-      currentStatus: task.status || '_',
+      currentStatus: getStatusLabel(task.status),
       action: 'Current task',
       updatedFields: '_',
       detail: task.notes || '_',

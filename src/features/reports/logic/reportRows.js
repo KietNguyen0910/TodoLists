@@ -1,4 +1,5 @@
 import { getDateTime, getInclusiveDateRange } from '../../../shared/utils/dateUtils';
+import { getStatusLabel } from '../../../shared/config/statusConfig';
 import { ACTION_LABELS, formatDetail, formatLogDetail, getUpdatedFields } from '../utils/reportFormatters';
 
 export function getLogsInRange(task, range) {
@@ -25,7 +26,7 @@ export function buildActivityRows(tasks, fromDate, toDate) {
         client: task.title || '_',
         taskName: task.description || '_',
         software: task.software || '_',
-        currentStatus: task.status || '_',
+        currentStatus: getStatusLabel(task.status),
         action: ACTION_LABELS[log.action] || log.action || '_',
         updatedFields: getUpdatedFields(log.changes),
         detail: formatDetail(log.changes),
@@ -57,7 +58,7 @@ export function buildJobRows(tasks, fromDate, toDate) {
         client: task.title || '_',
         taskName: task.description || '_',
         software: task.software || '_',
-        currentStatus: task.status || '_',
+        currentStatus: getStatusLabel(task.status),
         action: actions.length ? actions.join(', ') : '_',
         updatedFields: updatedFields.length ? updatedFields.join(', ') : '_',
         detail: matchingLogs.map(formatLogDetail).join('\n\n'),
@@ -80,7 +81,7 @@ export function buildSearchRows(tasks) {
         client: task.title || '_',
         taskName: task.description || '_',
         software: task.software || '_',
-        currentStatus: task.status || '_',
+        currentStatus: getStatusLabel(task.status),
         action: 'Current task',
         updatedFields: '_',
         detail: task.notes || '_',

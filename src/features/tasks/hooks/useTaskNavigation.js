@@ -4,6 +4,8 @@ import { getTaskTabId } from '../logic/taskFilters';
 
 export function getInitialTabId() {
   const tab = new URLSearchParams(window.location.search).get('tab');
+  if (tab === 'waiting') return 'waiting-information-request';
+
   return TAB_IDS.has(tab) ? tab : 'todo';
 }
 

@@ -15,7 +15,7 @@ export const STATUS_MAP = {
     column: 'waiting',
   },
   'Sent query for Manager': {
-    label: 'Sent query for Manager',
+    label: 'Sent Query to Manager',
     color: '#7c3aed',
     column: 'waiting',
   },
@@ -42,3 +42,7 @@ export const STATUS_MAP = {
 };
 
 export const STATUS_OPTIONS = Object.keys(STATUS_MAP);
+
+export function getStatusLabel(status) {
+  return STATUS_MAP[status]?.label || status || '_';
+}

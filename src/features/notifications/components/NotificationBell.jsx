@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { formatDate } from '../../../shared/utils/dateUtils';
+import { getStatusLabel } from '../../../shared/config/statusConfig';
 
 export default function NotificationBell({ notifications, unreadCount, onOpen, onSelect }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -55,7 +56,7 @@ export default function NotificationBell({ notifications, unreadCount, onOpen, o
                   <span className="notification-item-title">{notification.task.title || '_'}</span>
                   <span>{notification.task.description || 'No task'}</span>
                   <span className="notification-item-meta">
-                    {notification.task.status} - Assign {formatDate(notification.task.assignDate)} - {notification.daysWaiting} days waiting
+                    {getStatusLabel(notification.task.status)} - Assign {formatDate(notification.task.assignDate)} - {notification.daysWaiting} days waiting
                   </span>
                 </button>
               ))}

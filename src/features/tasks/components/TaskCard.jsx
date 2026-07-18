@@ -72,7 +72,7 @@ export default function TaskCard({
       <td className="cursor-pointer property-cell">{properties.length ? properties.map((property, propertyIndex) => <span className="property-table-value" key={`${property.address}-${propertyIndex}`}>{property.address} <em>{property.type === 'Investment' ? 'Investment' : 'Primary'}</em></span>) : '_'}</td>
       <td className="cursor-pointer motor-vehicle-cell">{motorVehicles.length ? motorVehicles.map((vehicle) => <span className="motor-vehicle-table-tag" key={vehicle}>{vehicle}</span>) : '_'}</td>
       <td className="cursor-pointer outcome-cell">{outcomes.length ? <>{!(hideEmptyOutcomeProgress && outcomeProgress.completedPhases === 0) && <div className="outcome-progress-label">{outcomeProgress.label}</div>}<ul className="outcome-table-list">{outcomes.map((outcome) => <li key={outcome}>+ {outcome}</li>)}</ul></> : '_'}</td>
-      <td className="cursor-pointer note-cell">{task.notes || '_'}</td>
+      <td className="cursor-pointer note-cell" title={task.notes ? 'Double-click this row to view the full note.' : undefined}><span className="note-preview">{task.notes || '_'}</span></td>
       {showCompletionTime && <td className="completion-time-cell">{formatDateTime(task.completionDate)}</td>}
       <td className="task-status-column">
         <div className="task-status-cell">

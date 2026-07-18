@@ -15,7 +15,7 @@ const STATUS_MAP = {
     column: 'waiting',
   },
   'Sent query for Manager': {
-    label: 'Sent query for Manager',
+    label: 'Sent Query to Manager',
     color: '#7c3aed',
     column: 'waiting',
   },
