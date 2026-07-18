@@ -20,6 +20,7 @@ export default function TaskCard({
   isStatusUpdating = false,
   isHighlighted = false,
   isReadOnly = false,
+  useNeutralRowBackground = false,
 }) {
   const statusConfig = statusMap[task.status] || statusMap['Initial Information Received'];
   const outcomes = Array.isArray(task.outcomeAchieved)
@@ -54,7 +55,7 @@ export default function TaskCard({
   };
 
   return (
-    <tr ref={taskRef} className={`task-row ${isHighlighted ? 'is-highlighted' : ''}`} onDoubleClick={handleRowDoubleClick} style={{ backgroundColor: hexToRgba(statusConfig.color || '#ffffff', 0.3) }}>
+    <tr ref={taskRef} className={`task-row ${isHighlighted ? 'is-highlighted' : ''}`} onDoubleClick={handleRowDoubleClick} style={{ backgroundColor: useNeutralRowBackground ? '#fff' : hexToRgba(statusConfig.color || '#ffffff', 0.3) }}>
       <td className="task-select-cell">
         <input
           type="checkbox"

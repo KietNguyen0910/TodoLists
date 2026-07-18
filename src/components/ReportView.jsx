@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import DatePickerInput from '../shared/components/DatePickerInput';
 import ClientSearch from '../features/reports/components/ClientSearch';
 import { exportReportRows } from '../features/reports/logic/reportExport';
 import { buildActivityRows, buildJobRows, buildSearchRows, filterRowsByClient } from '../features/reports/logic/reportRows';
@@ -135,9 +136,9 @@ export default function ReportView({ tasks }) {
     setToDate(range.toDate);
   };
 
-  const handleManualDateChange = (setDate) => (event) => {
+  const handleManualDateChange = (setDate) => (eventOrDate) => {
     setDateRangePreset('custom');
-    setDate(event.target.value);
+    setDate(typeof eventOrDate === 'string' ? eventOrDate : eventOrDate.target.value);
   };
 
   return (
@@ -152,8 +153,8 @@ export default function ReportView({ tasks }) {
         <label>Search Client
           <ClientSearch tasks={tasks} value={clientSearch} onChange={setClientSearch} />
         </label>
-        <label>From date<input type="date" value={fromDate} onChange={handleManualDateChange(setFromDate)} /></label>
-        <label>To date<input type="date" value={toDate} onChange={handleManualDateChange(setToDate)} /></label>
+        <label>From date<DatePickerInput ariaLabel="From date" value={fromDate} onChange={handleManualDateChange(setFromDate)} /></label>
+        <label>To date<DatePickerInput ariaLabel="To date" value={toDate} onChange={handleManualDateChange(setToDate)} /></label>
         <div className="report-filter date-range-filter">
           <span className="report-filter-label">Date range</span>
           <DateRangeSelect value={dateRangePreset} fromDate={fromDate} toDate={toDate} onChange={handleDateRangePresetChange} />

@@ -179,6 +179,31 @@ function updateTask(id, updates, actor = 'User') {
   return serializeTask(memoryTasks[index]);
 }
 
+function autoAssignTask(id) {
+  const index = memoryTasks.findIndex((task) => task._id === id);
+  if (index === -1 || memoryTasks[index].status !== 'Initial Information Received' || memoryTasks[index].deleted) return null;
+
+  const current = memoryTasks[index];
+  const changedAt = new Date();
+  const updates = {
+    status: 'In Progress',
+    statusHistory: [...(current.statusHistory || []), { status: 'In Progress', changedAt }],
+    auditLogs: [
+      ...(current.auditLogs || []),
+      {
+        action: 'auto-assigned',
+        actor: 'Automatic assignment',
+        changedAt,
+        changes: [{ field: 'status', label: 'Status', from: current.status, to: 'In Progress' }],
+      },
+    ],
+  };
+
+  memoryTasks[index] = { ...current, ...updates, updatedAt: changedAt };
+  saveTasks();
+  return serializeTask(memoryTasks[index]);
+}
+
 function deleteTask(id) {
   const index = memoryTasks.findIndex((task) => task._id === id);
   if (index === -1) return null;
@@ -192,5 +217,6 @@ module.exports = {
   getAllTasks,
   createTask,
   updateTask,
+  autoAssignTask,
   deleteTask,
 };

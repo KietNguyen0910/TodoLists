@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { createTask, deleteTasks, importTasks, updateClientTasks, updateTask } from './api/taskApi';
+import { autoAssignTasks, createTask, deleteTasks, importTasks, updateClientTasks, updateTask } from './api/taskApi';
 import { CLIENT_TAB, REPORT_TAB, TASK_TABS as TABS } from './app/tabs.config';
 import DeleteConfirmModal from './components/DeleteConfirmModal';
 import ImportTasksModal from './components/ImportTasksModal';
@@ -24,7 +24,7 @@ import { STATUS_MAP } from './shared/config/statusConfig';
 import { useToast } from './shared/hooks/useToast';
 
 export default function App() {
-  const { tasks, setTasks, loading, error, setError, loadTasks } = useTasks();
+  const { tasks, loading, error, setError, loadTasks } = useTasks();
   const { toastMessage, showToast } = useToast();
   const {
     auth,
@@ -56,13 +56,13 @@ export default function App() {
   const [selectedTaskIds, setSelectedTaskIds] = useState([]);
   const [taskSortMode, setTaskSortMode] = useState('');
   const selectAllCheckboxRef = useRef(null);
+  const autoAssignSessionRef = useRef(null);
 
   const isReportTab = activeTabId === REPORT_TAB.id;
   const isClientTab = activeTabId === CLIENT_TAB.id;
   const isSpecialTab = isReportTab || isClientTab;
   const activeTab = isReportTab ? REPORT_TAB : isClientTab ? CLIENT_TAB : TABS.find((tab) => tab.id === activeTabId) || TABS[0];
   const showCompletionTime = activeTab.id === 'completed';
-  const isWaitingTab = activeTab.id.startsWith('waiting-');
   const activeTaskSortMode = taskSortMode || getDefaultTaskSortMode(activeTab.id);
   const visibleTasks = isSpecialTab ? [] : sortTasksForTab(
     getTasksForTab(tasks, activeTab),
@@ -87,6 +87,29 @@ export default function App() {
     setSelectedTaskIds([]);
     setTaskSortMode('');
   }, [activeTabId]);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      autoAssignSessionRef.current = null;
+      return;
+    }
+    if (loading || autoAssignSessionRef.current === auth?.token) return;
+
+    autoAssignSessionRef.current = auth?.token;
+    const assignInitialTasks = async () => {
+      try {
+        const result = await autoAssignTasks();
+        if (!result.assignedCount) return;
+
+        await loadTasks();
+        showToast(`Automatically assigned ${result.assignedCount} task${result.assignedCount === 1 ? '' : 's'} to In Progress.`);
+      } catch (requestError) {
+        if (requestError?.status === 401) expireSession();
+      }
+    };
+
+    assignInitialTasks();
+  }, [auth?.token, expireSession, isAuthenticated, loading, loadTasks, showToast]);
 
   useEffect(() => {
     if (selectAllCheckboxRef.current) {
@@ -140,7 +163,7 @@ export default function App() {
       await loadTasks();
       setImportPreview(null);
       setIsImportDialogOpen(false);
-      showToast(`Imported ${result.importedCount} task${result.importedCount === 1 ? '' : 's'}${result.skippedCount ? `; ${result.skippedCount} duplicate${result.skippedCount === 1 ? '' : 's'} skipped.` : '.'}`);
+      showToast(`Imported ${result.importedCount} task${result.importedCount === 1 ? '' : 's'}${result.skippedCount ? `; ${result.skippedCount} duplicate${result.skippedCount === 1 ? '' : 's'} skipped` : ''}${result.autoAssignedCount ? `; ${result.autoAssignedCount} auto-assigned to In Progress` : ''}.`);
     } catch (requestError) {
       handleRequestError(requestError, 'Unable to import tasks.');
     } finally {
@@ -163,18 +186,13 @@ export default function App() {
     setIsSubmittingTask(true);
     try {
       if (editingTask) {
-        const updatedTask = await updateTask(editingTask._id, taskData);
-        setTasks((currentTasks) => currentTasks.map((task) => (
-          task._id === editingTask._id
-            ? { ...task, ...(updatedTask || {}), ...taskData, _id: task._id }
-            : task
-        )));
+        await updateTask(editingTask._id, taskData);
         showToast('Task updated successfully.');
       } else {
         await createTask(taskData);
         showToast('Task created successfully.');
-        await loadTasks();
       }
+      await loadTasks();
       closeTaskModal();
     } catch (requestError) {
       handleRequestError(requestError, editingTask ? 'Unable to update task.' : 'Unable to create task.');
@@ -299,7 +317,7 @@ export default function App() {
               <div className="task-table-toolbar">
                 <label>Sort by
                   <select value={activeTaskSortMode} onChange={(event) => setTaskSortMode(event.target.value)}>
-                    <option value={TASK_SORT_MODES.STATUS}>{isWaitingTab ? 'Status (grouped)' : 'Status (In Progress first)'}</option>
+                    <option value={TASK_SORT_MODES.STATUS}>{activeTab.id === 'todo' ? 'Status (In Progress first)' : 'Status (grouped)'}</option>
                     <option value={TASK_SORT_MODES.DATE_DESC}>{showCompletionTime ? 'Completion date: Newest first' : 'Assign date: Newest first'}</option>
                     <option value={TASK_SORT_MODES.DATE_ASC}>{showCompletionTime ? 'Completion date: Oldest first' : 'Assign date: Oldest first'}</option>
                     <option value={TASK_SORT_MODES.CLIENT}>Client name (A-Z)</option>
@@ -307,7 +325,7 @@ export default function App() {
                   </select>
                 </label>
               </div>
-              {loading ? <p className="empty">Loading tasks...</p> : <div className="task-list">{visibleTasks.length === 0 ? <p className="empty">No tasks found.</p> : <table className={`task-table ${showCompletionTime ? 'has-completion-time' : ''}`}><thead><tr><th className="task-select-column"><input ref={selectAllCheckboxRef} type="checkbox" checked={isAllVisibleSelected} onChange={toggleAllTaskSelection} aria-label={`Select all tasks in ${activeTab.title}`} /></th><th>No</th><th>Assign Date</th><th>Software</th><th>Client</th><th>Task</th><th className="payroll-column">Payroll</th><th>Property</th><th>Motor Vehicle</th><th className="outcome-column">Outcome Achieved</th><th className="note-column">Note</th>{showCompletionTime && <th>Completion Date</th>}<th className="task-status-column">Status</th></tr></thead><tbody>{visibleTasks.map((task, index) => <TaskCard key={task._id} taskRef={(element) => { taskRefs.current[task._id] = element; }} index={index + 1} task={task} isSelected={selectedTaskIdSet.has(task._id)} onSelect={toggleTaskSelection} statusMap={STATUS_MAP} onStatusChange={handleStatusChange} onDelete={(id, title) => setTaskToDelete({ ids: [id], title })} onEdit={(task) => { if (!requireLogin('edit tasks')) return; setEditingTask(task); setIsModalOpen(true); }} onViewHistory={setHistoryTask} onRequireLogin={requireLogin} showCompletionTime={showCompletionTime} hideEmptyOutcomeProgress={activeTab.id === 'completed'} isStatusUpdating={updatingStatusTaskId === task._id} isHighlighted={highlightedTaskId === task._id} isReadOnly={!isAuthenticated} />)}</tbody></table>}</div>}
+              {loading ? <p className="empty">Loading tasks...</p> : <div className="task-list">{visibleTasks.length === 0 ? <p className="empty">No tasks found.</p> : <table className={`task-table ${showCompletionTime ? 'has-completion-time' : ''}`}><thead><tr><th className="task-select-column"><input ref={selectAllCheckboxRef} type="checkbox" checked={isAllVisibleSelected} onChange={toggleAllTaskSelection} aria-label={`Select all tasks in ${activeTab.title}`} /></th><th>No</th><th>Assign Date</th><th>Software</th><th>Client</th><th>Task</th><th className="payroll-column">Payroll</th><th>Property</th><th>Motor Vehicle</th><th className="outcome-column">Outcome Achieved</th><th className="note-column">Note</th>{showCompletionTime && <th>Completion Date</th>}<th className="task-status-column">Status</th></tr></thead><tbody>{visibleTasks.map((task, index) => <TaskCard key={task._id} taskRef={(element) => { taskRefs.current[task._id] = element; }} index={index + 1} task={task} isSelected={selectedTaskIdSet.has(task._id)} onSelect={toggleTaskSelection} statusMap={STATUS_MAP} onStatusChange={handleStatusChange} onDelete={(id, title) => setTaskToDelete({ ids: [id], title })} onEdit={(task) => { if (!requireLogin('edit tasks')) return; setEditingTask(task); setIsModalOpen(true); }} onViewHistory={setHistoryTask} onRequireLogin={requireLogin} showCompletionTime={showCompletionTime} hideEmptyOutcomeProgress={activeTab.id === 'completed'} isStatusUpdating={updatingStatusTaskId === task._id} isHighlighted={highlightedTaskId === task._id} isReadOnly={!isAuthenticated} useNeutralRowBackground={activeTab.id === 'information-received' || (activeTab.id === 'todo' && task.status === 'On hold')} />)}</tbody></table>}</div>}
             </>
           )}
         </section>

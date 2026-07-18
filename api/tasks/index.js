@@ -1,6 +1,7 @@
 const { connectDb } = require('../lib/db');
 const Task = require('../lib/Task');
 const { requireAuth } = require('../lib/auth');
+const { autoAssignInProgressSlots } = require('../lib/autoAssign');
 
 function setCorsHeaders(res) {
   res.setHeader('Access-Control-Allow-Credentials', 'true');
@@ -119,6 +120,7 @@ module.exports = async function handler(req, res) {
       taskPayload.auditLogs = [createAuditLog('created', buildCreateChanges(taskPayload), actor)];
 
       const task = await Task.create(taskPayload);
+      await autoAssignInProgressSlots();
 
       return res.status(201).json(serializeTask(task));
     }

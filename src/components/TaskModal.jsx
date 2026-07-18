@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import DatePickerInput from '../shared/components/DatePickerInput';
 import { OUTCOME_PHASES } from '../features/outcomes/config/outcomeConfig';
 import { getOutcomeProgress } from '../features/outcomes/logic/outcomeProgress';
 import OutcomeMultiSelect from '../features/outcomes/components/OutcomeMultiSelect';
@@ -134,8 +135,8 @@ export default function TaskModal({ isOpen, onClose, onSubmit, initialValues, su
             <span>Motor Vehicle</span>
             <TagInput value={form.motorVehicles} disabled={isSubmitting} placeholder="Enter a motor vehicle and press Enter" onChange={(motorVehicles) => setForm((previous) => ({ ...previous, motorVehicles }))} />
           </div>
-          <label>Assign Date<input type="date" name="assignDate" value={form.assignDate} onChange={handleChange} /></label>
-          <label>Deadline<input type="date" name="deadline" value={form.deadline} onChange={handleChange} /></label>
+          <label>Assign Date<DatePickerInput name="assignDate" ariaLabel="Assign date" value={form.assignDate} onChange={(assignDate) => setForm((previous) => ({ ...previous, assignDate }))} /></label>
+          <label>Deadline<DatePickerInput name="deadline" ariaLabel="Deadline" value={form.deadline} onChange={(deadline) => setForm((previous) => ({ ...previous, deadline }))} /></label>
           <label>Note<textarea name="notes" value={form.notes} onChange={handleChange} rows="6" /></label>
           <label>Status<select name="status" value={form.status} onChange={handleChange}>{STATUS_OPTIONS.map((option) => <option key={option} value={option}>{getStatusLabel(option)}</option>)}</select></label>
           <div className="modal-actions">

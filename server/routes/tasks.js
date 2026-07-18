@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const Task = require('../models/Task');
 const taskStore = require('../taskStore');
 const { requireAuth } = require('../auth');
+const { autoAssignInProgressSlots } = require('../autoAssign');
 
 const router = express.Router();
 
@@ -156,11 +157,13 @@ router.post('/', requireAuth, async (req, res) => {
 
     if (!isMongoConnected()) {
       const task = taskStore.createTask(taskPayload);
+      await autoAssignInProgressSlots();
       return res.status(201).json(task);
     }
 
     const task = new Task(taskPayload);
     await task.save();
+    await autoAssignInProgressSlots();
     res.status(201).json(serializeTask(task));
   } catch (error) {
     res.status(500).json({ message: 'Failed to create task', error: error.message });
@@ -273,8 +276,11 @@ router.post('/import', requireAuth, async (req, res) => {
       }))
       : tasksToRestore.map(({ existingTask, task }) => taskStore.updateTask(existingTask._id, { ...task, deleted: false }, actor));
 
+    const autoAssignedTasks = await autoAssignInProgressSlots();
+
     return res.status(201).json({
       importedCount: createdTasks.length + restoredTasks.length,
+      autoAssignedCount: autoAssignedTasks.length,
       restoredCount: restoredTasks.length,
       skippedCount: duplicateIncomingRows.length + skippedExistingRows.length,
       invalidCount: invalidRows.length,
@@ -303,6 +309,7 @@ router.post('/bulk-delete', requireAuth, async (req, res) => {
       const deletedTasks = taskIds
         .map((taskId) => taskStore.updateTask(taskId, { deleted: true }, actor))
         .filter(Boolean);
+      await autoAssignInProgressSlots();
       return res.json({ deletedCount: deletedTasks.length });
     }
 
@@ -316,6 +323,7 @@ router.post('/bulk-delete', requireAuth, async (req, res) => {
       ];
       return Task.findByIdAndUpdate(task._id, updates);
     }));
+    await autoAssignInProgressSlots();
 
     return res.json({ deletedCount: existingTasks.length });
   } catch (error) {
@@ -410,6 +418,18 @@ router.patch('/client', requireAuth, async (req, res) => {
   }
 });
 
+router.post('/auto-assign', requireAuth, async (req, res) => {
+  try {
+    const autoAssignedTasks = await autoAssignInProgressSlots();
+    return res.json({
+      assignedCount: autoAssignedTasks.length,
+      tasks: autoAssignedTasks.map(serializeTask),
+    });
+  } catch (error) {
+    return res.status(500).json({ message: 'Failed to auto-assign tasks', error: error.message });
+  }
+});
+
 router.patch('/:id', requireAuth, async (req, res) => {
   try {
     const actor = req.authUser?.label || 'User';
@@ -461,6 +481,7 @@ router.patch('/:id', requireAuth, async (req, res) => {
       if (!task) {
         return res.status(404).json({ message: 'Task not found' });
       }
+      await autoAssignInProgressSlots();
       return res.json(task);
     }
 
@@ -486,6 +507,8 @@ router.patch('/:id', requireAuth, async (req, res) => {
 
     const task = await Task.findByIdAndUpdate(req.params.id, updates, { new: true });
 
+    await autoAssignInProgressSlots();
+
     res.json(serializeTask(task));
   } catch (error) {
     res.status(500).json({ message: 'Failed to update task', error: error.message });
@@ -499,6 +522,7 @@ router.delete('/:id', requireAuth, async (req, res) => {
       if (!task) {
         return res.status(404).json({ message: 'Task not found' });
       }
+      await autoAssignInProgressSlots();
       return res.json({ message: 'Task deleted successfully' });
     }
 
@@ -507,6 +531,8 @@ router.delete('/:id', requireAuth, async (req, res) => {
     if (!task) {
       return res.status(404).json({ message: 'Task not found' });
     }
+
+    await autoAssignInProgressSlots();
 
     res.json({ message: 'Task deleted successfully' });
   } catch (error) {

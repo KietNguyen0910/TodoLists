@@ -1,6 +1,7 @@
 const { connectDb } = require('../lib/db');
 const Task = require('../lib/Task');
 const { requireAuth } = require('../lib/auth');
+const { autoAssignInProgressSlots } = require('../lib/autoAssign');
 
 function setCorsHeaders(res) {
   res.setHeader('Access-Control-Allow-Credentials', 'true');
@@ -165,6 +166,8 @@ module.exports = async function handler(req, res) {
         return res.status(404).json({ message: 'Task not found' });
       }
 
+      await autoAssignInProgressSlots();
+
       return res.status(200).json(serializeTask(task));
     }
 
@@ -177,6 +180,8 @@ module.exports = async function handler(req, res) {
       if (!task) {
         return res.status(404).json({ message: 'Task not found' });
       }
+
+      await autoAssignInProgressSlots();
 
       return res.status(200).json({ message: 'Task deleted successfully', isDeleted: true, deleted: true });
     }

@@ -2,6 +2,7 @@ const ACTION_LABELS = {
   created: 'Created Task',
   updated: 'Updated Task',
   deleted: 'Deleted Task',
+  'auto-assigned': 'Auto assigned',
 };
 
 function formatDateTime(dateString) {

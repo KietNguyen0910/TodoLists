@@ -42,4 +42,18 @@ describe('task sorting', () => {
     expect(getDefaultTaskSortMode('completed')).toBe(TASK_SORT_MODES.DATE_DESC);
     expect(sortTasksForTab(completedTasks, 'completed').map((task) => task._id)).toEqual(['newer', 'older']);
   });
+
+  it('keeps automatic assignments at the end of the In Progress group', () => {
+    const tasksWithAutomaticAssignment = [
+      { _id: 'auto-progress', status: 'In Progress', assignDate: '2026-06-01', auditLogs: [{ action: 'auto-assigned' }] },
+      { _id: 'manual-progress', status: 'In Progress', assignDate: '2026-06-20' },
+      { _id: 'initial', status: 'Initial Information Received', assignDate: '2026-06-10' },
+    ];
+
+    expect(sortTasksForTab(tasksWithAutomaticAssignment, 'todo').map((task) => task._id)).toEqual([
+      'manual-progress',
+      'auto-progress',
+      'initial',
+    ]);
+  });
 });

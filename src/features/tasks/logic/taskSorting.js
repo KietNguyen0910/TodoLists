@@ -37,6 +37,12 @@ function getTaskDateTime(task, tabId) {
     : getDateTime(task.assignDate);
 }
 
+function isAutoAssignedInProgress(task) {
+  return task.status === 'In Progress'
+    && Array.isArray(task.auditLogs)
+    && task.auditLogs.some((log) => log.action === 'auto-assigned');
+}
+
 export function getDefaultTaskSortMode(tabId) {
   return tabId === 'completed' ? TASK_SORT_MODES.DATE_DESC : TASK_SORT_MODES.STATUS;
 }
@@ -59,7 +65,17 @@ export function sortTasksForTab(tasks, tabId, sortMode = getDefaultTaskSortMode(
       default: {
         const firstRank = STATUS_RANK.get(first.status) ?? STATUS_PRIORITY.length;
         const secondRank = STATUS_RANK.get(second.status) ?? STATUS_PRIORITY.length;
-        return firstRank - secondRank || firstDate - secondDate;
+        const statusComparison = firstRank - secondRank;
+        if (statusComparison !== 0) return statusComparison;
+
+        // Automatic assignments stay at the end of the In Progress group,
+        // rather than being mixed into its Assign Date ordering.
+        if (first.status === 'In Progress' && second.status === 'In Progress') {
+          const autoAssignComparison = Number(isAutoAssignedInProgress(first)) - Number(isAutoAssignedInProgress(second));
+          if (autoAssignComparison !== 0) return autoAssignComparison;
+        }
+
+        return firstDate - secondDate;
       }
     }
   });

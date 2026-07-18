@@ -8,6 +8,12 @@ describe('task tab filtering', () => {
     expect(getTaskTabId('Waiting for review')).toBe('waiting-review');
   });
 
+  it('separates Initial Information Received from the In Progress tab', () => {
+    expect(getTaskTabId('Initial Information Received')).toBe('information-received');
+    expect(getTaskTabId('In Progress')).toBe('todo');
+    expect(getTaskTabId('On hold')).toBe('todo');
+  });
+
   it('keeps all waiting statuses in the notification set', () => {
     expect(WAITING_STATUSES).toEqual(new Set([
       'Waiting client',

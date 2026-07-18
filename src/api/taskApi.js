@@ -22,6 +22,10 @@ export function importTasks(tasks) {
   return apiRequest(`${TASKS_URL}/import`, { method: 'POST', body: JSON.stringify({ tasks }) });
 }
 
+export function autoAssignTasks() {
+  return apiRequest(`${TASKS_URL}/auto-assign`, { method: 'POST' });
+}
+
 export function deleteTasks(taskIds) {
   return apiRequest(`${TASKS_URL}/bulk-delete`, { method: 'POST', body: JSON.stringify({ taskIds }) });
 }

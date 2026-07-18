@@ -2,6 +2,7 @@ const { connectDb } = require('../lib/db');
 const Task = require('../lib/Task');
 const { requireAuth } = require('../lib/auth');
 const { STATUS_OPTIONS } = require('../lib/statusConfig');
+const { autoAssignInProgressSlots } = require('../lib/autoAssign');
 
 function setCorsHeaders(res) {
   res.setHeader('Access-Control-Allow-Credentials', 'true');
@@ -181,8 +182,11 @@ module.exports = async function handler(req, res) {
       return Task.findByIdAndUpdate(existingTask._id, restoredTask, { new: true });
     }));
 
+    const autoAssignedTasks = await autoAssignInProgressSlots();
+
     return res.status(201).json({
       importedCount: createdTasks.length + restoredTasks.length,
+      autoAssignedCount: autoAssignedTasks.length,
       restoredCount: restoredTasks.length,
       skippedCount: duplicateIncomingRows.length + skippedExistingRows.length,
       invalidCount: invalidRows.length,
