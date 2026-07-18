@@ -27,11 +27,51 @@ export function formatDateTime(value, fallback = '_') {
 }
 
 export function getTodayInputDate() {
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = String(today.getMonth() + 1).padStart(2, '0');
-  const day = String(today.getDate()).padStart(2, '0');
+  return formatInputDate(new Date());
+}
+
+export function formatInputDate(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+}
+
+function createRange(from, to) {
+  return { fromDate: formatInputDate(from), toDate: formatInputDate(to) };
+}
+
+export function getReportDatePresetRange(preset, today = new Date()) {
+  const year = today.getFullYear();
+  const month = today.getMonth();
+  const currentMonthStart = new Date(year, month, 1);
+  const currentQuarterStartMonth = Math.floor(month / 3) * 3;
+  const currentQuarterStart = new Date(year, currentQuarterStartMonth, 1);
+  const financialYearStartYear = month >= 6 ? year : year - 1;
+  const financialYearStart = new Date(financialYearStartYear, 6, 1);
+
+  switch (preset) {
+    case 'this-month':
+      return createRange(currentMonthStart, new Date(year, month + 1, 0));
+    case 'this-quarter':
+      return createRange(currentQuarterStart, new Date(year, currentQuarterStartMonth + 3, 0));
+    case 'this-financial-year':
+      return createRange(financialYearStart, new Date(financialYearStartYear + 1, 6, 0));
+    case 'last-month':
+      return createRange(new Date(year, month - 1, 1), new Date(year, month, 0));
+    case 'last-quarter':
+      return createRange(new Date(year, currentQuarterStartMonth - 3, 1), new Date(year, currentQuarterStartMonth, 0));
+    case 'last-financial-year':
+      return createRange(new Date(financialYearStartYear - 1, 6, 1), new Date(financialYearStartYear, 6, 0));
+    case 'month-to-date':
+      return createRange(currentMonthStart, today);
+    case 'quarter-to-date':
+      return createRange(currentQuarterStart, today);
+    case 'year-to-date':
+      return createRange(financialYearStart, today);
+    default:
+      return null;
+  }
 }
 
 export function getInclusiveDateRange(fromDate, toDate) {

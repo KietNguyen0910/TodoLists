@@ -1569,12 +1569,13 @@ h1 {
 
 .report-filters {
   display: grid;
-  grid-template-columns: minmax(160px, 200px) minmax(220px, 1fr) repeat(2, minmax(180px, 220px));
+  grid-template-columns: minmax(160px, 200px) minmax(220px, 1fr) repeat(2, minmax(180px, 220px)) minmax(340px, 1fr);
   gap: 12px;
   padding: 0 8px;
 }
 
-.report-filters label {
+.report-filters label,
+.report-filter {
   display: grid;
   gap: 8px;
   font-weight: 700;
@@ -1588,6 +1589,80 @@ h1 {
   border-radius: 12px;
   color: #0f172a;
   font-size: 1rem;
+}
+
+.date-range-select {
+  position: relative;
+}
+
+.date-range-trigger {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #0f172a;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.date-range-trigger-icon {
+  font-size: 1.2rem;
+  line-height: 0.8;
+}
+
+.date-range-menu {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 420px;
+  padding: 8px 0;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.16);
+}
+
+.date-range-option {
+  display: grid;
+  width: 100%;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 24px;
+  padding: 11px 16px;
+  border: 0;
+  background: transparent;
+  color: #0f172a;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 500;
+  text-align: left;
+}
+
+.date-range-option span:last-child {
+  color: #64748b;
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+.date-range-option:hover,
+.date-range-option.is-selected {
+  background: #eef2ff;
+  color: #3730a3;
+}
+
+.date-range-option.is-selected span:last-child {
+  color: inherit;
+}
+
+.date-range-menu-divider {
+  height: 1px;
+  margin: 8px 0;
+  background: #e2e8f0;
 }
 
 .report-client-search {
@@ -1793,6 +1868,12 @@ h1 {
 
   .report-filters {
     grid-template-columns: 1fr;
+  }
+
+  .date-range-menu {
+    right: auto;
+    left: 0;
+    min-width: min(420px, calc(100vw - 32px));
   }
 
   .client-details {
