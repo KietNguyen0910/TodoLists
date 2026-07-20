@@ -1,6 +1,6 @@
-const { connectDb } = require('../lib/db');
-const { requireAuth } = require('../lib/auth');
-const { autoAssignInProgressSlots } = require('../lib/autoAssign');
+const { connectDb } = require('../../serverless/lib/db');
+const { requireAuth } = require('../../serverless/lib/auth');
+const { autoAssignInProgressSlots } = require('../../serverless/lib/autoAssign');
 
 function setCorsHeaders(res) {
   res.setHeader('Access-Control-Allow-Credentials', 'true');

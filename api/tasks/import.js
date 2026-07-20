@@ -1,8 +1,8 @@
-const { connectDb } = require('../lib/db');
-const Task = require('../lib/Task');
-const { requireAuth } = require('../lib/auth');
-const { STATUS_OPTIONS } = require('../lib/statusConfig');
-const { autoAssignInProgressSlots } = require('../lib/autoAssign');
+const { connectDb } = require('../../serverless/lib/db');
+const Task = require('../../serverless/lib/Task');
+const { requireAuth } = require('../../serverless/lib/auth');
+const { STATUS_OPTIONS } = require('../../serverless/lib/statusConfig');
+const { autoAssignInProgressSlots } = require('../../serverless/lib/autoAssign');
 
 function setCorsHeaders(res) {
   res.setHeader('Access-Control-Allow-Credentials', 'true');

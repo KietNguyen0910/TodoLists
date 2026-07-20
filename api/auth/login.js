@@ -1,4 +1,4 @@
-const { login } = require('../lib/auth');
+const { login } = require('../../serverless/lib/auth');
 
 function setCorsHeaders(res) {
   res.setHeader('Access-Control-Allow-Credentials', 'true');

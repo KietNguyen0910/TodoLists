@@ -1,7 +1,7 @@
-const { connectDb } = require('../lib/db');
-const Task = require('../lib/Task');
-const { requireAuth } = require('../lib/auth');
-const { autoAssignInProgressSlots } = require('../lib/autoAssign');
+const { connectDb } = require('../../serverless/lib/db');
+const Task = require('../../serverless/lib/Task');
+const { requireAuth } = require('../../serverless/lib/auth');
+const { autoAssignInProgressSlots } = require('../../serverless/lib/autoAssign');
 
 const VALID_STATUSES = [
   'Lodged/Completed',
