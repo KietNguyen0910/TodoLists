@@ -3,6 +3,7 @@ import TagInput from '../../tasks/components/TagInput';
 import { getSoftwareColor } from '../../../shared/config/softwareConfig';
 
 const SOFTWARE_OPTIONS = ['MYOB', 'Quickbook', 'Xero', 'Reckon'];
+const PAYROLL_OPTIONS = [{ value: '', label: 'N/A', color: '#64748b' }, ...SOFTWARE_OPTIONS.map((option) => ({ value: option, label: option, color: getSoftwareColor(option) }))];
 
 function normalizeProperties(properties) {
   return (Array.isArray(properties) ? properties : [])
@@ -20,7 +21,7 @@ function normalizeMotorVehicles(motorVehicles) {
 }
 
 export default function ClientModal({ isOpen, client, onClose, onSubmit, isSubmitting = false }) {
-  const [form, setForm] = useState({ title: '', software: '', payroll: null, properties: [], motorVehicles: [] });
+  const [form, setForm] = useState({ title: '', software: '', payroll: '', properties: [], motorVehicles: [] });
   const [dirtyFields, setDirtyFields] = useState(new Set());
   const [propertyAddress, setPropertyAddress] = useState('');
   const [propertyType, setPropertyType] = useState('Primary');
@@ -31,7 +32,7 @@ export default function ClientModal({ isOpen, client, onClose, onSubmit, isSubmi
     setForm({
       title: client.name,
       software: client.sharedSoftware ?? '',
-      payroll: client.sharedPayroll ?? null,
+      payroll: PAYROLL_OPTIONS.some((option) => option.value === client.sharedPayroll) ? client.sharedPayroll : '',
       properties: normalizeProperties(client.properties),
       motorVehicles: normalizeMotorVehicles(client.motorVehicles),
     });
@@ -86,14 +87,12 @@ export default function ClientModal({ isOpen, client, onClose, onSubmit, isSubmi
               {SOFTWARE_OPTIONS.map((option) => <option className="font-semibold" key={option} value={option} style={{ color: getSoftwareColor(option) }}>{option}</option>)}
             </select>
           </label>
-          <div className="form-field">
-            <div className="field-label-row"><span>Payroll</span>{client.hasMixedPayroll && form.payroll === null && <small className="field-hint">Multiple values - choose to update</small>}</div>
-            <div className="radio-group" role="radiogroup" aria-label="Payroll">
-              <label className={`radio-option ${form.payroll === true ? 'is-selected' : ''}`}><input type="radio" name="clientPayroll" checked={form.payroll === true} disabled={isSubmitting} onChange={() => updateField('payroll', true)} /> Yes</label>
-              <label className={`radio-option ${form.payroll === false ? 'is-selected' : ''}`}><input type="radio" name="clientPayroll" checked={form.payroll === false} disabled={isSubmitting} onChange={() => updateField('payroll', false)} /> No</label>
-            </div>
-            <button className="button-link" type="button" disabled={isSubmitting} onClick={() => updateField('payroll', null)}>Clear</button>
-          </div>
+          <label>Payroll
+            <select value={form.payroll} disabled={isSubmitting} onChange={(event) => updateField('payroll', event.target.value)} style={{ color: PAYROLL_OPTIONS.find((option) => option.value === form.payroll)?.color }}>
+              {PAYROLL_OPTIONS.map((option) => <option className="font-semibold" key={option.value} value={option.value} style={{ color: option.color }}>{option.label}</option>)}
+            </select>
+            {client.hasMixedPayroll && form.payroll === '' && <small className="field-hint">Multiple values - choose to update</small>}
+          </label>
           <div className="form-field">
             <span>Property</span>
             <input value={propertyAddress} placeholder="Enter property address" disabled={isSubmitting} onChange={(event) => setPropertyAddress(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); addProperty(); } }} />

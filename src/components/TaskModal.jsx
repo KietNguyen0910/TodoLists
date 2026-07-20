@@ -9,7 +9,8 @@ import { exportTask } from '../features/tasks/utils/taskExport';
 import TagInput from '../features/tasks/components/TagInput';
 
 const softwareOptions = ['MYOB', 'Quickbook', 'Xero', 'Reckon'];
-const initialForm = { title: '', description: '', outcomeAchieved: [], assignDate: '', deadline: '', notes: '', software: '', payroll: null, properties: [], motorVehicles: [], status: 'Initial Information Received' };
+const payrollOptions = [{ value: '', label: 'N/A', color: '#64748b' }, ...softwareOptions.map((option) => ({ value: option, label: option, color: getSoftwareColor(option) }))];
+const initialForm = { title: '', description: '', outcomeAchieved: [], assignDate: '', deadline: '', notes: '', software: '', payroll: '', properties: [], motorVehicles: [], status: 'Initial Information Received' };
 
 function getTodayInputDate() {
   const today = new Date();
@@ -54,7 +55,7 @@ export default function TaskModal({ isOpen, onClose, onSubmit, initialValues, cl
       ...(initialValues ? initialForm : createInitialForm),
       ...(initialValues || {}),
       outcomeAchieved: normalizeOutcomes(initialValues?.outcomeAchieved),
-      payroll: typeof initialValues?.payroll === 'boolean' ? initialValues.payroll : null,
+      payroll: payrollOptions.some((option) => option.value === initialValues?.payroll) ? initialValues.payroll : '',
       properties: normalizeProperties(initialValues?.properties),
       motorVehicles: normalizeMotorVehicles(initialValues?.motorVehicles),
     } : initialForm);
@@ -72,7 +73,7 @@ export default function TaskModal({ isOpen, onClose, onSubmit, initialValues, cl
     const sharedSoftware = softwareValues?.size === 1 ? [...softwareValues][0] : '';
     setForm((previous) => ({ ...previous, title: value, software: sharedSoftware }));
   };
-  const handlePayrollChange = (value) => setForm((previous) => ({ ...previous, payroll: value }));
+  const handlePayrollChange = ({ target: { value } }) => setForm((previous) => ({ ...previous, payroll: value }));
   const addProperty = () => {
     const address = propertyAddress.trim();
     if (!address) return;
@@ -117,16 +118,9 @@ export default function TaskModal({ isOpen, onClose, onSubmit, initialValues, cl
           <label>Task<textarea name="description" value={form.description} onChange={handleChange} rows="3" /></label>
           <label>Outcome Achieved<OutcomeMultiSelect options={OUTCOME_PHASES} value={form.outcomeAchieved} progressLabel={outcomeProgress.label} onChange={(outcomes) => setForm((previous) => ({ ...previous, outcomeAchieved: outcomes }))} /></label>
           <label>Select Software<select name="software" value={form.software} onChange={handleChange} style={{ color: form.software ? getSoftwareColor(form.software) : undefined }}><option value="">Select software</option>{softwareOptions.map((option) => <option className='font-semibold' key={option} value={option} style={{ color: getSoftwareColor(option) }}>{option}</option>)}</select>{mode === 'create' && clientSoftwareByName.get(form.title.trim().toLocaleLowerCase())?.size > 1 && <small className="field-hint">Multiple software values found. Choose one to standardise this client.</small>}</label>
-          <div className="form-field">
-            <div className="field-label-row">
-              <span>Payroll</span>
-              <button className="button-link" type="button" onClick={() => handlePayrollChange(null)} disabled={isSubmitting || form.payroll === null}>Clear</button>
-            </div>
-            <div className="radio-group" role="radiogroup" aria-label="Payroll">
-              <label className={`radio-option ${form.payroll === true ? 'is-selected' : ''}`}><input type="radio" name="payroll" checked={form.payroll === true} disabled={isSubmitting} onChange={() => handlePayrollChange(true)} /> Yes</label>
-              <label className={`radio-option ${form.payroll === false ? 'is-selected' : ''}`}><input type="radio" name="payroll" checked={form.payroll === false} disabled={isSubmitting} onChange={() => handlePayrollChange(false)} /> No</label>
-            </div>
-          </div>
+          <label>Payroll<select name="payroll" value={form.payroll} disabled={isSubmitting} onChange={handlePayrollChange} style={{ color: payrollOptions.find((option) => option.value === form.payroll)?.color }}>
+            {payrollOptions.map((option) => <option className="font-semibold" key={option.value} value={option.value} style={{ color: option.color }}>{option.label}</option>)}
+          </select></label>
           <div className="form-field">
             <span>Property</span>
             <div className="flex gap-3">

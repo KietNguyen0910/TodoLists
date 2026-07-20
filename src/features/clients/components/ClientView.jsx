@@ -27,8 +27,8 @@ function getClientRecords(tasks) {
       client.taskCount += 1;
       if (task.software) client.software.add(task.software);
       client.softwareValues.add(task.software || '');
-      if (typeof task.payroll === 'boolean') client.payroll.add(task.payroll);
-      client.payrollValues.add(task.payroll === true ? 'true' : task.payroll === false ? 'false' : 'null');
+      if (task.payroll) client.payroll.add(task.payroll);
+      client.payrollValues.add(task.payroll || '');
       (Array.isArray(task.properties) ? task.properties : []).forEach((property) => {
         if (!property?.address) return;
 
@@ -50,13 +50,7 @@ function getClientRecords(tasks) {
       properties: [...client.properties.values()],
       motorVehicles: [...client.motorVehicles],
       sharedSoftware: client.softwareValues.size === 1 ? [...client.softwareValues][0] : null,
-      sharedPayroll: client.payrollValues.size === 1
-        ? [...client.payrollValues][0] === 'true'
-          ? true
-          : [...client.payrollValues][0] === 'false'
-            ? false
-            : null
-        : null,
+      sharedPayroll: client.payrollValues.size === 1 ? [...client.payrollValues][0] : null,
       hasMixedSoftware: client.softwareValues.size > 1,
       hasMixedPayroll: client.payrollValues.size > 1,
     }))

@@ -6,7 +6,5 @@ export function formatValue(value) {
 }
 
 export function formatPayroll(value) {
-  if (value === true) return 'Yes';
-  if (value === false) return 'No';
-  return '_';
+  return ['MYOB', 'Quickbook', 'Xero', 'Reckon'].includes(value) ? value : '_';
 }

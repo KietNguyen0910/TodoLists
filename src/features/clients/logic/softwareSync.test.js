@@ -17,12 +17,12 @@ describe('client software sync', () => {
 
   it('counts a task once when any shared client field differs', () => {
     const sharedTasks = [
-      { _id: 'same', title: 'Client', payroll: true, properties: [{ address: '1 Main St', type: 'Primary' }], motorVehicles: ['Toyota'] },
-      { _id: 'different', title: 'client', payroll: false, properties: [], motorVehicles: ['Mazda'] },
+      { _id: 'same', title: 'Client', payroll: 'MYOB', properties: [{ address: '1 Main St', type: 'Primary' }], motorVehicles: ['Toyota'] },
+      { _id: 'different', title: 'client', payroll: 'Xero', properties: [], motorVehicles: ['Mazda'] },
     ];
 
     expect(getClientSyncCount(sharedTasks, 'CLIENT', {
-      payroll: true,
+      payroll: 'MYOB',
       properties: [{ address: '1 Main St', type: 'Primary' }],
       motorVehicles: ['Toyota'],
     }, 'same')).toBe(1);

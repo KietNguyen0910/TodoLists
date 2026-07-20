@@ -11,7 +11,7 @@ const COLUMN_DATA_CHECKS = [
   ['is-software-empty', (task) => hasText(task.software)],
   ['is-client-empty', (task) => hasText(task.title)],
   ['is-task-empty', (task) => hasText(task.description)],
-  ['is-payroll-empty', (task) => task.payroll !== null && task.payroll !== undefined],
+  ['is-payroll-empty', (task) => Boolean(task.payroll)],
   ['is-property-empty', (task) => hasItems(task.properties)],
   ['is-motor-vehicle-empty', (task) => hasItems(task.motorVehicles)],
   ['is-outcome-empty', (task) => hasItems(task.outcomeAchieved)],
