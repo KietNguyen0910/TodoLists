@@ -69,7 +69,7 @@ export default function TaskCard({
       <td className="cursor-pointer">{task.software ? <span className="software-value" style={{ color: getSoftwareColor(task.software) }}>{task.software}</span> : '_'}</td>
       <td className="cursor-pointer">{task.title || '_'}</td>
       <td className="cursor-pointer outcome-cell">{task.description || '_'}</td>
-      <td className="cursor-pointer payroll-cell">{formatPayroll(task.payroll)}</td>
+      <td className="cursor-pointer payroll-cell">{task.payroll ? <span className="software-value" style={{ color: getSoftwareColor(task.payroll) }}>{formatPayroll(task.payroll)}</span> : formatPayroll(task.payroll)}</td>
       <td className="cursor-pointer property-cell">{properties.length ? properties.map((property, propertyIndex) => <span className="property-table-value" key={`${property.address}-${propertyIndex}`}>{property.address} <em>{property.type === 'Investment' ? 'Investment' : 'Primary'}</em></span>) : '_'}</td>
       <td className="cursor-pointer motor-vehicle-cell">{motorVehicles.length ? motorVehicles.map((vehicle) => <span className="motor-vehicle-table-tag" key={vehicle}>{vehicle}</span>) : '_'}</td>
       <td className="cursor-pointer outcome-cell">{outcomes.length ? <>{!(hideEmptyOutcomeProgress && outcomeProgress.completedPhases === 0) && <div className="outcome-progress-label">{outcomeProgress.label}</div>}<ul className="outcome-table-list">{outcomes.map((outcome) => <li key={outcome}>+ {outcome}</li>)}</ul></> : '_'}</td>
