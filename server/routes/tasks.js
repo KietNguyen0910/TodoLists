@@ -388,6 +388,53 @@ router.post('/bulk-delete', requireAuth, async (req, res) => {
   }
 });
 
+router.post('/bulk-status', requireAuth, async (req, res) => {
+  try {
+    const taskIds = Array.isArray(req.body?.taskIds)
+      ? [...new Set(req.body.taskIds.filter((id) => typeof id === 'string' && id.trim()))]
+      : [];
+    const status = req.body?.status;
+    if (taskIds.length === 0) return res.status(400).json({ message: 'Select at least one task.' });
+    if (!VALID_STATUSES.includes(status)) return res.status(400).json({ message: 'Status is not supported.' });
+
+    const actor = req.authUser?.label || 'User';
+    const matchingTasks = isMongoConnected()
+      ? await Task.find({ _id: { $in: taskIds }, deleted: { $ne: true }, isDeleted: { $ne: true } })
+      : taskStore.getAllTasks().filter((task) => taskIds.includes(task._id) && !isDeletedTask(task));
+    const updatedTasks = [];
+    let updatedCount = 0;
+
+    for (const matchingTask of matchingTasks) {
+      const currentTask = matchingTask.toObject ? matchingTask.toObject() : matchingTask;
+      if (currentTask.status === status) {
+        updatedTasks.push(serializeTask(matchingTask));
+        continue;
+      }
+
+      const updates = { status };
+      if (status === 'Lodged/Completed') updates.completionDate = new Date();
+      const changes = buildUpdateChanges(currentTask, updates);
+      const taskUpdates = isMongoConnected()
+        ? {
+          ...updates,
+          statusHistory: [...(currentTask.statusHistory || []), { status, changedAt: new Date() }],
+          auditLogs: [...(currentTask.auditLogs || []), createAuditLog('updated', changes, actor)],
+        }
+        : updates;
+      const updatedTask = isMongoConnected()
+        ? await Task.findByIdAndUpdate(matchingTask._id, taskUpdates, { new: true })
+        : taskStore.updateTask(matchingTask._id, updates, actor);
+      updatedTasks.push(serializeTask(updatedTask));
+      updatedCount += 1;
+    }
+
+    const autoAssignedTasks = await autoAssignInProgressSlots();
+    return res.json({ matchedCount: matchingTasks.length, updatedCount, autoAssignedCount: autoAssignedTasks.length, tasks: updatedTasks });
+  } catch (error) {
+    return res.status(500).json({ message: 'Failed to update task statuses.', error: error.message });
+  }
+});
+
 router.patch('/client', requireAuth, async (req, res) => {
   try {
     const clientName = normalizeTaskText(req.body?.clientName);

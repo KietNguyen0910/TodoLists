@@ -893,7 +893,7 @@ h1 {
 
 .main-layout {
   display: grid;
-  grid-template-columns: 280px minmax(0, 1fr);
+  grid-template-columns: 300px minmax(0, 1fr);
   gap: 20px;
 }
 
@@ -927,6 +927,7 @@ h1 {
   background: #4f46e5;
   color: white;
   border-color: transparent;
+  font-weight: 700;
 }
 
 .client-view {

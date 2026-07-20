@@ -53,6 +53,14 @@ export default function TaskCard({
     event.preventDefault();
     onRequireLogin?.('change task status');
   };
+  const handleSelectionChange = (event) => {
+    const inputEvent = event.nativeEvent || event;
+    onSelect?.(task._id, {
+      ctrlKey: Boolean(inputEvent.ctrlKey),
+      metaKey: Boolean(inputEvent.metaKey),
+      shiftKey: Boolean(inputEvent.shiftKey),
+    });
+  };
 
   return (
     <tr ref={taskRef} className={`task-row ${isHighlighted ? 'is-highlighted' : ''}`} onDoubleClick={handleRowDoubleClick} style={{ backgroundColor: useNeutralRowBackground ? '#fff' : hexToRgba(statusConfig.color || '#ffffff', 0.3) }}>
@@ -61,7 +69,7 @@ export default function TaskCard({
           type="checkbox"
           checked={isSelected}
           aria-label={`Select ${task.title || 'task'}`}
-          onChange={() => onSelect?.(task._id)}
+          onChange={handleSelectionChange}
         />
       </td>
       <td className="cursor-pointer">{index}</td>

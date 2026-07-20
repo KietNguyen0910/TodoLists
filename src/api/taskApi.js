@@ -29,3 +29,7 @@ export function autoAssignTasks() {
 export function deleteTasks(taskIds) {
   return apiRequest(`${TASKS_URL}/bulk-delete`, { method: 'POST', body: JSON.stringify({ taskIds }) });
 }
+
+export function updateTasksStatus(taskIds, status) {
+  return apiRequest(`${TASKS_URL}/bulk-status`, { method: 'POST', body: JSON.stringify({ taskIds, status }) });
+}
