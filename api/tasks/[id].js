@@ -22,7 +22,7 @@ const serializeTask = (task) => {
   return {
     ...taskObj,
     software: taskObj.software || '',
-    payroll: typeof taskObj.payroll === 'boolean' ? taskObj.payroll : null,
+    payroll: normalizePayroll(taskObj.payroll),
     properties: normalizeProperties(taskObj.properties),
     motorVehicles: normalizeMotorVehicles(taskObj.motorVehicles),
     auditLogs: taskObj.auditLogs || [],
@@ -35,7 +35,7 @@ const normalizeOutcomes = (value) => (Array.isArray(value) ? value : [value])
   .filter((outcome) => typeof outcome === 'string')
   .map((outcome) => outcome.trim())
   .filter(Boolean);
-const normalizePayroll = (value) => (typeof value === 'boolean' ? value : null);
+const normalizePayroll = (value) => ['MYOB', 'Quickbook', 'Xero', 'Reckon'].includes(value) ? value : '';
 const normalizeProperties = (value) => (Array.isArray(value) ? value : [])
   .filter((property) => property && typeof property.address === 'string' && property.address.trim())
   .map((property) => ({ address: property.address.trim(), type: property.type === 'Investment' ? 'Investment' : 'Primary' }));

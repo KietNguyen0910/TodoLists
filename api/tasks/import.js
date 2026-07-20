@@ -59,7 +59,7 @@ const serializeTask = (task) => {
   return {
     ...taskObj,
     software: taskObj.software || '',
-    payroll: typeof taskObj.payroll === 'boolean' ? taskObj.payroll : null,
+    payroll: ['MYOB', 'Quickbook', 'Xero', 'Reckon'].includes(taskObj.payroll) ? taskObj.payroll : '',
     auditLogs: taskObj.auditLogs || [],
     deleted: isDeleted,
     isDeleted,
@@ -127,7 +127,7 @@ module.exports = async function handler(req, res) {
         title,
         description,
         software: '',
-        payroll: null,
+        payroll: '',
         outcomeAchieved: normalizeOutcomes(rawTask?.outcomeAchieved),
         assignDate: rawTask?.assignDate || '',
         deadline: rawTask?.deadline || '',

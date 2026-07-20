@@ -25,7 +25,7 @@ const normalizeOutcomes = (value) => (Array.isArray(value) ? value : [value])
   .filter((outcome) => typeof outcome === 'string')
   .map((outcome) => outcome.trim())
   .filter(Boolean);
-const normalizePayroll = (value) => (typeof value === 'boolean' ? value : null);
+const normalizePayroll = (value) => ['MYOB', 'Quickbook', 'Xero', 'Reckon'].includes(value) ? value : '';
 const normalizeTaskText = (value) => (typeof value === 'string' ? value.trim() : '');
 const normalizeProperties = (value) => (Array.isArray(value) ? value : [])
   .filter((property) => property && typeof property.address === 'string' && property.address.trim())
@@ -107,7 +107,7 @@ const serializeTask = (task) => {
   return {
     ...taskObj,
     software: taskObj.software || '',
-    payroll: typeof taskObj.payroll === 'boolean' ? taskObj.payroll : null,
+    payroll: normalizePayroll(taskObj.payroll),
     properties: normalizeProperties(taskObj.properties),
     motorVehicles: normalizeMotorVehicles(taskObj.motorVehicles),
     auditLogs: taskObj.auditLogs || [],
@@ -271,7 +271,7 @@ router.post('/import', requireAuth, async (req, res) => {
         title,
         description,
         software: '',
-        payroll: null,
+        payroll: '',
         properties: [],
         motorVehicles: [],
         outcomeAchieved: normalizeOutcomes(rawTask?.outcomeAchieved),
@@ -415,7 +415,7 @@ router.patch('/client', requireAuth, async (req, res) => {
       updates.software = normalizeTaskText(rawUpdates.software);
     }
     if (rawUpdates.payroll !== undefined) {
-      if (rawUpdates.payroll !== null && typeof rawUpdates.payroll !== 'boolean') return res.status(400).json({ message: 'Payroll must be Yes, No, or empty.' });
+      if (typeof rawUpdates.payroll !== 'string' || !['', 'MYOB', 'Quickbook', 'Xero', 'Reckon'].includes(rawUpdates.payroll)) return res.status(400).json({ message: 'Payroll must be a supported software option or N/A.' });
       updates.payroll = normalizePayroll(rawUpdates.payroll);
     }
     if (rawUpdates.properties !== undefined) {

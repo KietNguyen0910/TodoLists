@@ -18,8 +18,9 @@ const taskSchema = new mongoose.Schema(
       default: '',
     },
     payroll: {
-      type: Boolean,
-      default: null,
+      type: String,
+      enum: ['', 'MYOB', 'Quickbook', 'Xero', 'Reckon'],
+      default: '',
     },
     properties: {
       type: [{
