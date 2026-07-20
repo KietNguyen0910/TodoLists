@@ -1694,6 +1694,17 @@ h1 {
   font: inherit;
 }
 
+.task-table-export-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding: 12px 8px 4px;
+}
+
+.task-table-export-actions .button-primary:disabled {
+  background: #94a3b8;
+  cursor: not-allowed;
+}
+
 .report-filters input,
 .report-filters select {
   width: 100%;

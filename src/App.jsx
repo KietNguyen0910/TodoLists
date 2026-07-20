@@ -17,13 +17,15 @@ import { useWaitingNotifications } from './features/notifications/hooks/useWaiti
 import GlobalSearch from './features/search/components/GlobalSearch';
 import TaskCard from './features/tasks/components/TaskCard';
 import TaskTableSkeleton from './features/tasks/components/TaskTableSkeleton';
-import { getSearchableTasks, getTaskCountForTab, getTasksForTab } from './features/tasks/logic/taskFilters';
+import { getSearchableTasks, getTaskCountForTab, getTasksForTab, isActiveTask } from './features/tasks/logic/taskFilters';
+import { getDailyBackupDate, getDailyBackupFilename, hasDailyBackup, markDailyBackup } from './features/tasks/utils/dailyBackup';
 import { getEmptyTaskTableColumnClasses } from './features/tasks/logic/taskTableLayout';
 import { getTaskRangeIds } from './features/tasks/logic/taskSelection';
 import { getDefaultTaskSortMode, sortTasksForTab, TASK_SORT_MODES } from './features/tasks/logic/taskSorting';
 import { useTasks } from './features/tasks/hooks/useTasks';
 import { useTaskNavigation, useTaskTab } from './features/tasks/hooks/useTaskNavigation';
 import { buildImportPreview, parseExcelFile } from './features/tasks/utils/excelImport';
+import { exportDailyOutcomeTasks } from './features/tasks/utils/dailyOutcomeExport';
 import { downloadJobNewsTemplate } from './features/tasks/utils/jobNewsTemplate';
 import { STATUS_MAP } from './shared/config/statusConfig';
 import { useToast } from './shared/hooks/useToast';
@@ -59,6 +61,7 @@ export default function App() {
   const [isSubmittingClient, setIsSubmittingClient] = useState(false);
   const [isDeletingTask, setIsDeletingTask] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [isExportingTasks, setIsExportingTasks] = useState(false);
   const [updatingStatusTaskId, setUpdatingStatusTaskId] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
@@ -71,9 +74,11 @@ export default function App() {
   const [selectedTaskIds, setSelectedTaskIds] = useState([]);
   const [selectionAnchorTaskId, setSelectionAnchorTaskId] = useState(null);
   const [isBulkStatusUpdating, setIsBulkStatusUpdating] = useState(false);
+  const [autoAssignReadyToken, setAutoAssignReadyToken] = useState(null);
   const [taskSortMode, setTaskSortMode] = useState('');
   const selectAllCheckboxRef = useRef(null);
   const autoAssignSessionRef = useRef(null);
+  const autoBackupDayRef = useRef(null);
 
   const isReportTab = activeTabId === REPORT_TAB.id;
   const isClientTab = activeTabId === CLIENT_TAB.id;
@@ -111,11 +116,14 @@ export default function App() {
   useEffect(() => {
     if (!isAuthenticated) {
       autoAssignSessionRef.current = null;
+      setAutoAssignReadyToken(null);
       return;
     }
     if (loading || autoAssignSessionRef.current === auth?.token) return;
 
-    autoAssignSessionRef.current = auth?.token;
+    const sessionToken = auth?.token;
+    autoAssignSessionRef.current = sessionToken;
+    setAutoAssignReadyToken(null);
     const assignInitialTasks = async () => {
       try {
         const result = await autoAssignTasks();
@@ -125,11 +133,44 @@ export default function App() {
         showToast(`Automatically assigned ${result.assignedCount} task${result.assignedCount === 1 ? '' : 's'} to In Progress.`);
       } catch (requestError) {
         if (requestError?.status === 401) expireSession();
+      } finally {
+        setAutoAssignReadyToken(sessionToken);
       }
     };
 
     assignInitialTasks();
   }, [auth?.token, expireSession, isAuthenticated, loading, loadTasks, showToast]);
+
+  useEffect(() => {
+    if (loading || error || (isAuthenticated && autoAssignReadyToken !== auth?.token)) return;
+
+    const backupDate = new Date();
+    const backupDay = getDailyBackupDate(backupDate);
+    if (autoBackupDayRef.current === backupDay) return;
+    if (hasDailyBackup(backupDate)) {
+      autoBackupDayRef.current = backupDay;
+      return;
+    }
+
+    autoBackupDayRef.current = backupDay;
+    const createDailyBackup = async () => {
+      try {
+        const activeTasks = tasks.filter(isActiveTask);
+        await exportDailyOutcomeTasks(activeTasks, 'backup', {
+          filename: getDailyBackupFilename(backupDate),
+          allowEmpty: true,
+        });
+        markDailyBackup(backupDate);
+        showToast(`Daily backup downloaded (${activeTasks.length} task${activeTasks.length === 1 ? '' : 's'}).`);
+      } catch (backupError) {
+        autoBackupDayRef.current = null;
+        console.error('Daily backup error:', backupError);
+        showToast('Daily backup could not be downloaded. It will retry when you next open the app.');
+      }
+    };
+
+    createDailyBackup();
+  }, [auth?.token, autoAssignReadyToken, error, isAuthenticated, loading, showToast, tasks]);
 
   useEffect(() => {
     if (selectAllCheckboxRef.current) {
@@ -279,6 +320,21 @@ export default function App() {
     setPendingSoftwareSync(null);
   };
 
+  const handleTaskTableExport = async () => {
+    if (!visibleTasks.length || isExportingTasks) return;
+
+    setIsExportingTasks(true);
+    try {
+      await exportDailyOutcomeTasks(visibleTasks, activeTab.title);
+      showToast(`Exported ${visibleTasks.length} task${visibleTasks.length === 1 ? '' : 's'} to Excel.`);
+    } catch (exportError) {
+      console.error('Daily Outcome Updates export error:', exportError);
+      setError('Unable to export the Daily Outcome Updates file.');
+    } finally {
+      setIsExportingTasks(false);
+    }
+  };
+
   const handleStatusChange = async (taskId, status) => {
     if (!requireLogin('change task status')) return;
 
@@ -407,6 +463,13 @@ export default function App() {
                 </label>
               </div>
               {loading ? <TaskTableSkeleton showCompletionTime={showCompletionTime} /> : <div className="task-list">{visibleTasks.length === 0 ? <p className="empty">No tasks found.</p> : <table className={`task-table ${showCompletionTime ? 'has-completion-time' : ''} ${emptyTaskTableColumnClasses}`}><thead><tr><th className="task-select-column"><input ref={selectAllCheckboxRef} type="checkbox" checked={isAllVisibleSelected} onChange={toggleAllTaskSelection} aria-label={`Select all tasks in ${activeTab.title}`} /></th><th>No</th><th>Assign Date</th><th>Software</th><th>Client</th><th>Task</th><th className="payroll-column">Payroll</th><th>Property</th><th>Motor Vehicle</th><th className="outcome-column">Outcome Achieved</th><th className="note-column">Note</th>{showCompletionTime && <th>Completion Date</th>}<th className="task-status-column">Status</th></tr></thead><tbody>{visibleTasks.map((task, index) => <TaskCard key={task._id} taskRef={(element) => { taskRefs.current[task._id] = element; }} index={index + 1} task={task} isSelected={selectedTaskIdSet.has(task._id)} onSelect={toggleTaskSelection} statusMap={STATUS_MAP} onStatusChange={handleStatusChange} onDelete={(id, title) => setTaskToDelete({ ids: [id], title })} onEdit={(task) => { if (!requireLogin('edit tasks')) return; setEditingTask(task); setIsModalOpen(true); }} onViewHistory={setHistoryTask} onRequireLogin={requireLogin} showCompletionTime={showCompletionTime} hideEmptyOutcomeProgress={activeTab.id === 'completed'} isStatusUpdating={isBulkStatusUpdating || updatingStatusTaskId === task._id} isHighlighted={highlightedTaskId === task._id} isReadOnly={!isAuthenticated} useNeutralRowBackground={activeTab.id === 'information-received' || (activeTab.id === 'todo' && task.status === 'On hold')} />)}</tbody></table>}</div>}
+              {!loading && (
+                <div className="task-table-export-actions">
+                  <button className="button-primary" type="button" disabled={visibleTasks.length === 0 || isExportingTasks} onClick={handleTaskTableExport}>
+                    {isExportingTasks ? 'Preparing Excel...' : 'Export Excel'}
+                  </button>
+                </div>
+              )}
             </>
           )}
         </section>
