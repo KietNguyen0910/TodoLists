@@ -11,18 +11,13 @@ export function isWaitingStatus(status) {
 
 export function getWaitingEnteredAt(task) {
   const history = Array.isArray(task.statusHistory) ? task.statusHistory : [];
-  let enteredAt = null;
-  let wasWaiting = false;
+  const latestWaitingEntry = history
+    .filter((entry) => isWaitingStatus(entry.status) && getDateTime(entry.changedAt))
+    .reduce((latest, entry) => (
+      !latest || getDateTime(entry.changedAt) > getDateTime(latest.changedAt) ? entry : latest
+    ), null);
 
-  history.forEach((entry) => {
-    const isWaiting = isWaitingStatus(entry.status);
-    if (isWaiting && !wasWaiting) {
-      enteredAt = entry.changedAt;
-    }
-    wasWaiting = isWaiting;
-  });
-
-  return enteredAt || task.updatedAt || task.createdAt || task.assignDate;
+  return latestWaitingEntry?.changedAt || task.createdAt || task.updatedAt || task.assignDate;
 }
 
 export function getNotificationId(task, waitingEnteredAt) {

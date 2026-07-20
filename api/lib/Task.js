@@ -21,6 +21,17 @@ const taskSchema = new mongoose.Schema(
       type: Boolean,
       default: null,
     },
+    properties: {
+      type: [{
+        address: { type: String, trim: true, required: true },
+        type: { type: String, enum: ['Primary', 'Investment'], default: 'Primary' },
+      }],
+      default: [],
+    },
+    motorVehicles: {
+      type: [String],
+      default: [],
+    },
     outcomeAchieved: {
       type: [String],
       default: [],

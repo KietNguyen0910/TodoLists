@@ -41,7 +41,7 @@ function normalizeMotorVehicles(motorVehicles) {
   return motorVehicles.filter((vehicle) => typeof vehicle === 'string' && vehicle.trim()).map((vehicle) => vehicle.trim());
 }
 
-export default function TaskModal({ isOpen, onClose, onSubmit, initialValues, submitLabel = 'Create Task', mode = 'create', isSubmitting = false }) {
+export default function TaskModal({ isOpen, onClose, onSubmit, initialValues, clientSoftwareByName = new Map(), submitLabel = 'Create Task', mode = 'create', isSubmitting = false }) {
   const [form, setForm] = useState(initialForm);
   const [propertyAddress, setPropertyAddress] = useState('');
   const [propertyType, setPropertyType] = useState('Primary');
@@ -62,7 +62,16 @@ export default function TaskModal({ isOpen, onClose, onSubmit, initialValues, su
     setPropertyType('Primary');
   }, [isOpen, initialValues]);
 
-  const handleChange = ({ target: { name, value } }) => setForm((previous) => ({ ...previous, [name]: value }));
+  const handleChange = ({ target: { name, value } }) => {
+    if (name !== 'title' || mode !== 'create') {
+      setForm((previous) => ({ ...previous, [name]: value }));
+      return;
+    }
+
+    const softwareValues = clientSoftwareByName.get(value.trim().toLocaleLowerCase());
+    const sharedSoftware = softwareValues?.size === 1 ? [...softwareValues][0] : '';
+    setForm((previous) => ({ ...previous, title: value, software: sharedSoftware }));
+  };
   const handlePayrollChange = (value) => setForm((previous) => ({ ...previous, payroll: value }));
   const addProperty = () => {
     const address = propertyAddress.trim();
@@ -107,7 +116,7 @@ export default function TaskModal({ isOpen, onClose, onSubmit, initialValues, su
           <label>Client<input name="title" value={form.title} onChange={handleChange} required /></label>
           <label>Task<textarea name="description" value={form.description} onChange={handleChange} rows="3" /></label>
           <label>Outcome Achieved<OutcomeMultiSelect options={OUTCOME_PHASES} value={form.outcomeAchieved} progressLabel={outcomeProgress.label} onChange={(outcomes) => setForm((previous) => ({ ...previous, outcomeAchieved: outcomes }))} /></label>
-          <label>Select Software<select name="software" value={form.software} onChange={handleChange} style={{ color: form.software ? getSoftwareColor(form.software) : undefined }}><option value="">Select software</option>{softwareOptions.map((option) => <option className='font-semibold' key={option} value={option} style={{ color: getSoftwareColor(option) }}>{option}</option>)}</select></label>
+          <label>Select Software<select name="software" value={form.software} onChange={handleChange} style={{ color: form.software ? getSoftwareColor(form.software) : undefined }}><option value="">Select software</option>{softwareOptions.map((option) => <option className='font-semibold' key={option} value={option} style={{ color: getSoftwareColor(option) }}>{option}</option>)}</select>{mode === 'create' && clientSoftwareByName.get(form.title.trim().toLocaleLowerCase())?.size > 1 && <small className="field-hint">Multiple software values found. Choose one to standardise this client.</small>}</label>
           <div className="form-field">
             <div className="field-label-row">
               <span>Payroll</span>

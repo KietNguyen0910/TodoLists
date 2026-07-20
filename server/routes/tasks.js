@@ -19,6 +19,7 @@ const VALID_STATUSES = [
 ];
 
 const DEFAULT_STATUS = 'Initial Information Received';
+const CLIENT_SYNC_FIELDS = new Set(['software', 'payroll', 'properties', 'motorVehicles']);
 
 const normalizeOutcomes = (value) => (Array.isArray(value) ? value : [value])
   .filter((outcome) => typeof outcome === 'string')
@@ -115,6 +116,58 @@ const serializeTask = (task) => {
   };
 };
 
+function getClientSyncUpdates(source, fields, includeSoftware = false) {
+  const requestedFields = new Set([
+    ...(Array.isArray(fields) ? fields : []),
+    ...(includeSoftware ? ['software'] : []),
+  ]);
+
+  return [...requestedFields].reduce((updates, field) => (
+    CLIENT_SYNC_FIELDS.has(field) && Object.prototype.hasOwnProperty.call(source, field)
+      ? { ...updates, [field]: source[field] }
+      : updates
+  ), {});
+}
+
+async function syncClientFieldsAcrossTasks(clientName, clientUpdates, actor) {
+  const normalizedClientName = normalizeTaskText(clientName);
+  const isMatchingClient = (task) => !isDeletedTask(task)
+    && normalizeTaskText(task.title).toLocaleLowerCase() === normalizedClientName.toLocaleLowerCase();
+  const matchingTasks = isMongoConnected()
+    ? await Task.find({
+      title: { $regex: new RegExp(`^${escapeRegex(normalizedClientName)}$`, 'i') },
+      deleted: { $ne: true },
+      isDeleted: { $ne: true },
+    })
+    : taskStore.getAllTasks().filter(isMatchingClient);
+
+  let updatedCount = 0;
+  const updatedTasks = [];
+  for (const matchingTask of matchingTasks) {
+    const currentTask = matchingTask.toObject ? matchingTask.toObject() : matchingTask;
+    const changes = buildUpdateChanges(currentTask, clientUpdates);
+    if (changes.length === 0) {
+      updatedTasks.push(serializeTask(matchingTask));
+      continue;
+    }
+
+    const taskUpdates = {
+      ...clientUpdates,
+      auditLogs: [
+        ...(currentTask.auditLogs || []),
+        createAuditLog('updated', changes, actor),
+      ],
+    };
+    const updatedTask = isMongoConnected()
+      ? await Task.findByIdAndUpdate(matchingTask._id, taskUpdates, { new: true })
+      : taskStore.updateTask(matchingTask._id, clientUpdates, actor);
+    updatedTasks.push(serializeTask(updatedTask));
+    updatedCount += 1;
+  }
+
+  return { matchedCount: matchingTasks.length, updatedCount, tasks: updatedTasks };
+}
+
 router.get('/', async (req, res) => {
   try {
     if (!isMongoConnected()) {
@@ -131,7 +184,7 @@ router.get('/', async (req, res) => {
 router.post('/', requireAuth, async (req, res) => {
   try {
     const actor = req.authUser?.label || 'User';
-    const { title, description, software, payroll, properties, motorVehicles, outcomeAchieved, assignDate, deadline, notes, status } = req.body;
+    const { title, description, software, payroll, properties, motorVehicles, outcomeAchieved, assignDate, deadline, notes, status, syncSoftwareForClient, syncClientFields } = req.body;
 
     if (!title || !title.trim()) {
       return res.status(400).json({ message: 'Title is required' });
@@ -157,14 +210,18 @@ router.post('/', requireAuth, async (req, res) => {
 
     if (!isMongoConnected()) {
       const task = taskStore.createTask(taskPayload);
+      const clientUpdates = getClientSyncUpdates(task, syncClientFields, syncSoftwareForClient);
+      const syncResult = Object.keys(clientUpdates).length ? await syncClientFieldsAcrossTasks(task.title, clientUpdates, actor) : null;
       await autoAssignInProgressSlots();
-      return res.status(201).json(task);
+      return res.status(201).json(syncResult ? { task, ...syncResult } : task);
     }
 
     const task = new Task(taskPayload);
     await task.save();
+    const clientUpdates = getClientSyncUpdates(taskPayload, syncClientFields, syncSoftwareForClient);
+    const syncResult = Object.keys(clientUpdates).length ? await syncClientFieldsAcrossTasks(task.title, clientUpdates, actor) : null;
     await autoAssignInProgressSlots();
-    res.status(201).json(serializeTask(task));
+    res.status(201).json(syncResult ? { task: serializeTask(task), ...syncResult } : serializeTask(task));
   } catch (error) {
     res.status(500).json({ message: 'Failed to create task', error: error.message });
   }
@@ -433,7 +490,7 @@ router.post('/auto-assign', requireAuth, async (req, res) => {
 router.patch('/:id', requireAuth, async (req, res) => {
   try {
     const actor = req.authUser?.label || 'User';
-    const { title, description, software, payroll, properties, motorVehicles, outcomeAchieved, assignDate, deadline, notes, status, deleted } = req.body;
+    const { title, description, software, payroll, properties, motorVehicles, outcomeAchieved, assignDate, deadline, notes, status, deleted, syncSoftwareForClient, syncClientFields } = req.body;
     const updates = {};
 
     if (title !== undefined) {
@@ -481,8 +538,10 @@ router.patch('/:id', requireAuth, async (req, res) => {
       if (!task) {
         return res.status(404).json({ message: 'Task not found' });
       }
+      const clientUpdates = getClientSyncUpdates(updates, syncClientFields, syncSoftwareForClient);
+      const syncResult = Object.keys(clientUpdates).length ? await syncClientFieldsAcrossTasks(task.title, clientUpdates, actor) : null;
       await autoAssignInProgressSlots();
-      return res.json(task);
+      return res.json(syncResult ? { task, ...syncResult } : task);
     }
 
     const existingTask = await Task.findById(req.params.id);
@@ -507,9 +566,11 @@ router.patch('/:id', requireAuth, async (req, res) => {
 
     const task = await Task.findByIdAndUpdate(req.params.id, updates, { new: true });
 
+    const clientUpdates = getClientSyncUpdates(updates, syncClientFields, syncSoftwareForClient);
+    const syncResult = Object.keys(clientUpdates).length ? await syncClientFieldsAcrossTasks(task.title, clientUpdates, actor) : null;
     await autoAssignInProgressSlots();
 
-    res.json(serializeTask(task));
+    res.json(syncResult ? { task: serializeTask(task), ...syncResult } : serializeTask(task));
   } catch (error) {
     res.status(500).json({ message: 'Failed to update task', error: error.message });
   }

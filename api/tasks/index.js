@@ -23,6 +23,8 @@ const serializeTask = (task) => {
     ...taskObj,
     software: taskObj.software || '',
     payroll: typeof taskObj.payroll === 'boolean' ? taskObj.payroll : null,
+    properties: normalizeProperties(taskObj.properties),
+    motorVehicles: normalizeMotorVehicles(taskObj.motorVehicles),
     auditLogs: taskObj.auditLogs || [],
     deleted: isDeleted,
     isDeleted,
@@ -34,6 +36,16 @@ const normalizeOutcomes = (value) => (Array.isArray(value) ? value : [value])
   .map((outcome) => outcome.trim())
   .filter(Boolean);
 const normalizePayroll = (value) => (typeof value === 'boolean' ? value : null);
+const normalizeProperties = (value) => (Array.isArray(value) ? value : [])
+  .filter((property) => property && typeof property.address === 'string' && property.address.trim())
+  .map((property) => ({ address: property.address.trim(), type: property.type === 'Investment' ? 'Investment' : 'Primary' }));
+const normalizeMotorVehicles = (value) => Array.from(new Set((Array.isArray(value) ? value : [])
+  .filter((vehicle) => typeof vehicle === 'string')
+  .map((vehicle) => vehicle.trim())
+  .filter(Boolean)));
+const normalizeTaskText = (value) => (typeof value === 'string' ? value.trim() : '');
+const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const CLIENT_SYNC_FIELDS = new Set(['software', 'payroll', 'properties', 'motorVehicles']);
 
 const AUDIT_FIELDS = [
   { field: 'title', label: 'Client', normalize: (value) => value || '' },
@@ -41,6 +53,8 @@ const AUDIT_FIELDS = [
   { field: 'outcomeAchieved', label: 'Outcome Achieved', normalize: normalizeOutcomes },
   { field: 'software', label: 'Software', normalize: (value) => value || '' },
   { field: 'payroll', label: 'Payroll', normalize: normalizePayroll },
+  { field: 'properties', label: 'Property', normalize: normalizeProperties },
+  { field: 'motorVehicles', label: 'Motor Vehicle', normalize: normalizeMotorVehicles },
   { field: 'assignDate', label: 'Assign Date', normalize: (value) => value || '' },
   { field: 'deadline', label: 'Deadline', normalize: (value) => value || '' },
   { field: 'notes', label: 'Note', normalize: (value) => value || '' },
@@ -65,6 +79,49 @@ const buildCreateChanges = (taskPayload) => AUDIT_FIELDS
   }))
   .filter(({ to }) => hasValue(to));
 
+function getClientSyncUpdates(source, fields, includeSoftware = false) {
+  const requestedFields = new Set([...(Array.isArray(fields) ? fields : []), ...(includeSoftware ? ['software'] : [])]);
+  return [...requestedFields].reduce((updates, field) => (
+    CLIENT_SYNC_FIELDS.has(field) && Object.prototype.hasOwnProperty.call(source, field)
+      ? { ...updates, [field]: source[field] }
+      : updates
+  ), {});
+}
+
+async function syncClientFieldsAcrossTasks(clientName, clientUpdates, actor) {
+  const normalizedClientName = normalizeTaskText(clientName);
+  const matchingTasks = await Task.find({
+    title: { $regex: new RegExp(`^${escapeRegex(normalizedClientName)}$`, 'i') },
+    deleted: { $ne: true },
+    isDeleted: { $ne: true },
+  });
+  let updatedCount = 0;
+
+  await Promise.all(matchingTasks.map(async (matchingTask) => {
+    const currentTask = matchingTask.toObject();
+    const changes = Object.entries(clientUpdates)
+      .map(([field, value]) => {
+        const config = AUDIT_FIELDS.find((item) => item.field === field);
+        const from = config.normalize(currentTask[field]);
+        const to = config.normalize(value);
+        return { field, label: config.label, from, to };
+      })
+      .filter(({ from, to }) => JSON.stringify(from) !== JSON.stringify(to));
+    if (changes.length === 0) return;
+
+    updatedCount += 1;
+    await Task.findByIdAndUpdate(matchingTask._id, {
+      ...clientUpdates,
+      auditLogs: [
+        ...(currentTask.auditLogs || []),
+        createAuditLog('updated', changes, actor),
+      ],
+    });
+  }));
+
+  return { matchedCount: matchingTasks.length, updatedCount };
+}
+
 module.exports = async function handler(req, res) {
   setCorsHeaders(res);
 
@@ -86,7 +143,7 @@ module.exports = async function handler(req, res) {
       if (!authUser) return;
 
       const actor = authUser.label || 'User';
-      const { title, description, software, payroll, outcomeAchieved, assignDate, deadline, notes, status } = req.body;
+      const { title, description, software, payroll, properties, motorVehicles, outcomeAchieved, assignDate, deadline, notes, status, syncSoftwareForClient, syncClientFields } = req.body;
       const VALID_STATUSES = [
         'Lodged/Completed',
         'Waiting for review',
@@ -109,6 +166,8 @@ module.exports = async function handler(req, res) {
         description: description || '',
         software: software || '',
         payroll: normalizePayroll(payroll),
+        properties: normalizeProperties(properties),
+        motorVehicles: normalizeMotorVehicles(motorVehicles),
         outcomeAchieved: normalizeOutcomes(outcomeAchieved),
         assignDate: assignDate || '',
         deadline: deadline || '',
@@ -120,9 +179,11 @@ module.exports = async function handler(req, res) {
       taskPayload.auditLogs = [createAuditLog('created', buildCreateChanges(taskPayload), actor)];
 
       const task = await Task.create(taskPayload);
+      const clientUpdates = getClientSyncUpdates(taskPayload, syncClientFields, syncSoftwareForClient);
+      const syncResult = Object.keys(clientUpdates).length ? await syncClientFieldsAcrossTasks(task.title, clientUpdates, actor) : null;
       await autoAssignInProgressSlots();
 
-      return res.status(201).json(serializeTask(task));
+      return res.status(201).json(syncResult ? { task: serializeTask(task), ...syncResult } : serializeTask(task));
     }
 
     return res.status(405).json({ message: 'Method not allowed' });

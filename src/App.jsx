@@ -5,9 +5,11 @@ import DeleteConfirmModal from './components/DeleteConfirmModal';
 import ImportTasksModal from './components/ImportTasksModal';
 import LoginModal from './components/LoginModal';
 import ReportView from './components/ReportView';
+import SoftwareSyncConfirmModal from './components/SoftwareSyncConfirmModal';
 import TaskHistoryModal from './components/TaskHistoryModal';
 import TaskModal from './components/TaskModal';
 import { useAuth } from './features/auth/hooks/useAuth';
+import { getClientSoftwareByName, getClientSyncCount } from './features/clients/logic/softwareSync';
 import ClientView from './features/clients/components/ClientView';
 import ClientModal from './features/clients/components/ClientModal';
 import NotificationBell from './features/notifications/components/NotificationBell';
@@ -16,6 +18,7 @@ import GlobalSearch from './features/search/components/GlobalSearch';
 import TaskCard from './features/tasks/components/TaskCard';
 import TaskTableSkeleton from './features/tasks/components/TaskTableSkeleton';
 import { getSearchableTasks, getTaskCountForTab, getTasksForTab } from './features/tasks/logic/taskFilters';
+import { getEmptyTaskTableColumnClasses } from './features/tasks/logic/taskTableLayout';
 import { getDefaultTaskSortMode, sortTasksForTab, TASK_SORT_MODES } from './features/tasks/logic/taskSorting';
 import { useTasks } from './features/tasks/hooks/useTasks';
 import { useTaskNavigation, useTaskTab } from './features/tasks/hooks/useTaskNavigation';
@@ -23,6 +26,15 @@ import { buildImportPreview, parseExcelFile } from './features/tasks/utils/excel
 import { downloadJobNewsTemplate } from './features/tasks/utils/jobNewsTemplate';
 import { STATUS_MAP } from './shared/config/statusConfig';
 import { useToast } from './shared/hooks/useToast';
+
+const CLIENT_SYNC_FIELDS = ['software', 'payroll', 'properties', 'motorVehicles'];
+const CLIENT_SYNC_LABELS = {
+  software: 'Software',
+  payroll: 'Payroll',
+  properties: 'Property',
+  motorVehicles: 'Motor Vehicle',
+};
+const valuesMatch = (first, second) => JSON.stringify(first ?? null) === JSON.stringify(second ?? null);
 
 export default function App() {
   const { tasks, loading, error, setError, loadTasks } = useTasks();
@@ -52,6 +64,7 @@ export default function App() {
   const [editingClient, setEditingClient] = useState(null);
   const [historyTask, setHistoryTask] = useState(null);
   const [taskToDelete, setTaskToDelete] = useState(null);
+  const [pendingSoftwareSync, setPendingSoftwareSync] = useState(null);
   const [importPreview, setImportPreview] = useState(null);
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const [selectedTaskIds, setSelectedTaskIds] = useState([]);
@@ -70,7 +83,9 @@ export default function App() {
     activeTab.id,
     activeTaskSortMode
   );
+  const emptyTaskTableColumnClasses = getEmptyTaskTableColumnClasses(visibleTasks, showCompletionTime);
   const searchableTasks = getSearchableTasks(tasks);
+  const clientSoftwareByName = getClientSoftwareByName(tasks);
   const getCount = (tab) => getTaskCountForTab(tasks, tab);
   const visibleTaskIds = new Set(visibleTasks.map((task) => task._id));
   const selectedVisibleIds = selectedTaskIds.filter((taskId) => visibleTaskIds.has(taskId));
@@ -181,17 +196,17 @@ export default function App() {
     setError(fallbackMessage);
   };
 
-  const handleTaskSubmit = async (taskData) => {
+  const submitTask = async (taskData, syncClientFields = []) => {
     if (!requireLogin(editingTask ? 'update tasks' : 'add tasks')) return;
 
     setIsSubmittingTask(true);
     try {
       if (editingTask) {
-        await updateTask(editingTask._id, taskData);
-        showToast('Task updated successfully.');
+        const result = await updateTask(editingTask._id, { ...taskData, syncClientFields });
+        showToast(syncClientFields.length ? `Task updated; client fields synced across ${result.updatedCount} task${result.updatedCount === 1 ? '' : 's'}.` : 'Task updated successfully.');
       } else {
-        await createTask(taskData);
-        showToast('Task created successfully.');
+        const result = await createTask({ ...taskData, syncSoftwareForClient: syncClientFields.includes('software') });
+        showToast(syncClientFields.length ? `Task created; software synced across ${result.updatedCount} task${result.updatedCount === 1 ? '' : 's'}.` : 'Task created successfully.');
       }
       await loadTasks();
       closeTaskModal();
@@ -202,7 +217,23 @@ export default function App() {
     }
   };
 
-  const handleClientSubmit = async ({ clientName, updates }) => {
+  const handleTaskSubmit = (taskData) => {
+    if (!requireLogin(editingTask ? 'update tasks' : 'add tasks')) return;
+
+    const syncClientFields = editingTask
+      ? CLIENT_SYNC_FIELDS.filter((field) => !valuesMatch(taskData[field], editingTask[field]))
+      : ['software'];
+    const syncUpdates = Object.fromEntries(syncClientFields.map((field) => [field, taskData[field]]));
+    const taskCount = syncClientFields.length ? getClientSyncCount(tasks, taskData.title, syncUpdates, editingTask?._id) : 0;
+    if (taskCount > 0) {
+      setPendingSoftwareSync({ type: 'task', taskData, clientName: taskData.title.trim(), fields: syncClientFields, taskCount });
+      return;
+    }
+
+    submitTask(taskData);
+  };
+
+  const submitClientUpdate = async ({ clientName, updates }) => {
     if (!requireLogin('edit clients') || Object.keys(updates).length === 0) return;
 
     setIsSubmittingClient(true);
@@ -216,6 +247,32 @@ export default function App() {
     } finally {
       setIsSubmittingClient(false);
     }
+  };
+
+  const handleClientSubmit = ({ clientName, updates }) => {
+    if (!requireLogin('edit clients') || Object.keys(updates).length === 0) return;
+
+    const fields = CLIENT_SYNC_FIELDS.filter((field) => Object.prototype.hasOwnProperty.call(updates, field));
+    const syncUpdates = Object.fromEntries(fields.map((field) => [field, updates[field]]));
+    const taskCount = fields.length ? getClientSyncCount(tasks, clientName, syncUpdates) : 0;
+    if (taskCount > 0) {
+      setPendingSoftwareSync({ type: 'client', clientName, updates, fields, taskCount });
+      return;
+    }
+
+    submitClientUpdate({ clientName, updates });
+  };
+
+  const confirmSoftwareSync = async () => {
+    const pendingSync = pendingSoftwareSync;
+    if (!pendingSync) return;
+
+    if (pendingSync.type === 'task') {
+      await submitTask(pendingSync.taskData, pendingSync.fields);
+    } else {
+      await submitClientUpdate(pendingSync);
+    }
+    setPendingSoftwareSync(null);
   };
 
   const handleStatusChange = async (taskId, status) => {
@@ -326,17 +383,18 @@ export default function App() {
                   </select>
                 </label>
               </div>
-              {loading ? <TaskTableSkeleton showCompletionTime={showCompletionTime} /> : <div className="task-list">{visibleTasks.length === 0 ? <p className="empty">No tasks found.</p> : <table className={`task-table ${showCompletionTime ? 'has-completion-time' : ''}`}><thead><tr><th className="task-select-column"><input ref={selectAllCheckboxRef} type="checkbox" checked={isAllVisibleSelected} onChange={toggleAllTaskSelection} aria-label={`Select all tasks in ${activeTab.title}`} /></th><th>No</th><th>Assign Date</th><th>Software</th><th>Client</th><th>Task</th><th className="payroll-column">Payroll</th><th>Property</th><th>Motor Vehicle</th><th className="outcome-column">Outcome Achieved</th><th className="note-column">Note</th>{showCompletionTime && <th>Completion Date</th>}<th className="task-status-column">Status</th></tr></thead><tbody>{visibleTasks.map((task, index) => <TaskCard key={task._id} taskRef={(element) => { taskRefs.current[task._id] = element; }} index={index + 1} task={task} isSelected={selectedTaskIdSet.has(task._id)} onSelect={toggleTaskSelection} statusMap={STATUS_MAP} onStatusChange={handleStatusChange} onDelete={(id, title) => setTaskToDelete({ ids: [id], title })} onEdit={(task) => { if (!requireLogin('edit tasks')) return; setEditingTask(task); setIsModalOpen(true); }} onViewHistory={setHistoryTask} onRequireLogin={requireLogin} showCompletionTime={showCompletionTime} hideEmptyOutcomeProgress={activeTab.id === 'completed'} isStatusUpdating={updatingStatusTaskId === task._id} isHighlighted={highlightedTaskId === task._id} isReadOnly={!isAuthenticated} useNeutralRowBackground={activeTab.id === 'information-received' || (activeTab.id === 'todo' && task.status === 'On hold')} />)}</tbody></table>}</div>}
+              {loading ? <TaskTableSkeleton showCompletionTime={showCompletionTime} /> : <div className="task-list">{visibleTasks.length === 0 ? <p className="empty">No tasks found.</p> : <table className={`task-table ${showCompletionTime ? 'has-completion-time' : ''} ${emptyTaskTableColumnClasses}`}><thead><tr><th className="task-select-column"><input ref={selectAllCheckboxRef} type="checkbox" checked={isAllVisibleSelected} onChange={toggleAllTaskSelection} aria-label={`Select all tasks in ${activeTab.title}`} /></th><th>No</th><th>Assign Date</th><th>Software</th><th>Client</th><th>Task</th><th className="payroll-column">Payroll</th><th>Property</th><th>Motor Vehicle</th><th className="outcome-column">Outcome Achieved</th><th className="note-column">Note</th>{showCompletionTime && <th>Completion Date</th>}<th className="task-status-column">Status</th></tr></thead><tbody>{visibleTasks.map((task, index) => <TaskCard key={task._id} taskRef={(element) => { taskRefs.current[task._id] = element; }} index={index + 1} task={task} isSelected={selectedTaskIdSet.has(task._id)} onSelect={toggleTaskSelection} statusMap={STATUS_MAP} onStatusChange={handleStatusChange} onDelete={(id, title) => setTaskToDelete({ ids: [id], title })} onEdit={(task) => { if (!requireLogin('edit tasks')) return; setEditingTask(task); setIsModalOpen(true); }} onViewHistory={setHistoryTask} onRequireLogin={requireLogin} showCompletionTime={showCompletionTime} hideEmptyOutcomeProgress={activeTab.id === 'completed'} isStatusUpdating={updatingStatusTaskId === task._id} isHighlighted={highlightedTaskId === task._id} isReadOnly={!isAuthenticated} useNeutralRowBackground={activeTab.id === 'information-received' || (activeTab.id === 'todo' && task.status === 'On hold')} />)}</tbody></table>}</div>}
             </>
           )}
         </section>
       </div>
-      <TaskModal isOpen={isModalOpen} onClose={closeTaskModal} onSubmit={handleTaskSubmit} initialValues={editingTask || undefined} submitLabel={editingTask ? 'Update Task' : 'Create Task'} mode={editingTask ? 'edit' : 'create'} isSubmitting={isSubmittingTask} />
+      <TaskModal isOpen={isModalOpen} onClose={closeTaskModal} onSubmit={handleTaskSubmit} initialValues={editingTask || undefined} clientSoftwareByName={clientSoftwareByName} submitLabel={editingTask ? 'Update Task' : 'Create Task'} mode={editingTask ? 'edit' : 'create'} isSubmitting={isSubmittingTask} />
       <ClientModal isOpen={Boolean(editingClient)} client={editingClient} onClose={closeClientModal} onSubmit={handleClientSubmit} isSubmitting={isSubmittingClient} />
       <ImportTasksModal isOpen={isImportDialogOpen} preview={importPreview} onClose={closeImportDialog} onConfirm={confirmImport} onFileSelected={handleImportFileSelection} onDownloadTemplate={downloadJobNewsTemplate} isImporting={isImporting} />
       <LoginModal isOpen={isLoginModalOpen} onClose={() => setIsLoginModalOpen(false)} onSubmit={handleLogin} isSubmitting={isLoggingIn} error={loginError} />
       <TaskHistoryModal isOpen={Boolean(historyTask)} task={historyTask} onClose={() => setHistoryTask(null)} />
       <DeleteConfirmModal isOpen={Boolean(taskToDelete)} taskTitle={taskToDelete?.title} taskCount={taskToDelete?.ids?.length || 1} onConfirm={confirmDelete} onCancel={() => setTaskToDelete(null)} isDeleting={isDeletingTask} />
+      <SoftwareSyncConfirmModal isOpen={Boolean(pendingSoftwareSync)} clientName={pendingSoftwareSync?.clientName || ''} fields={(pendingSoftwareSync?.fields || []).map((field) => CLIENT_SYNC_LABELS[field])} taskCount={pendingSoftwareSync?.taskCount || 0} onConfirm={confirmSoftwareSync} onCancel={() => setPendingSoftwareSync(null)} isSubmitting={isSubmittingTask || isSubmittingClient} />
       {updatingStatusTaskId && (
         <div className="status-loading-overlay" role="status" aria-live="polite">
           <div className="status-loading-card">
