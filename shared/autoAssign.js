@@ -1,6 +1,6 @@
 const IN_PROGRESS_STATUS = 'In Progress';
 const INITIAL_STATUS = 'Initial Information Received';
-const IN_PROGRESS_CAPACITY = 4;
+const IN_PROGRESS_CAPACITY = 2;
 
 function isActiveTask(task) {
   return !(task?.deleted || task?.isDeleted);

@@ -13,9 +13,9 @@ describe('automatic In Progress assignment', () => {
     expect(selectAutomaticAssignments(tasks).map((task) => task._id)).toEqual(['initial-old', 'initial-new']);
   });
 
-  it('does not assign when four or more active tasks are already In Progress', () => {
+  it('does not assign when two or more active tasks are already In Progress', () => {
     const tasks = [
-      ...Array.from({ length: 4 }, (_, index) => ({ _id: `progress-${index}`, status: 'In Progress' })),
+      ...Array.from({ length: 2 }, (_, index) => ({ _id: `progress-${index}`, status: 'In Progress' })),
       { _id: 'initial', status: 'Initial Information Received', assignDate: '2026-07-01' },
     ];
 
