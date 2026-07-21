@@ -7,7 +7,7 @@ import SoftwareSyncConfirmModal from './components/SoftwareSyncConfirmModal';
 import TaskHistoryModal from './components/TaskHistoryModal';
 import TaskModal from './components/TaskModal';
 import { useAuth } from './features/auth/hooks/useAuth';
-import { getClientSoftwareByName, getClientSyncCount } from './features/clients/logic/softwareSync';
+import { getClientProfiles, getClientSoftwareByName, getClientSyncCount } from './features/clients/logic/softwareSync';
 import ClientModal from './features/clients/components/ClientModal';
 import NotificationBell from './features/notifications/components/NotificationBell';
 import { useWaitingNotifications } from './features/notifications/hooks/useWaitingNotifications';
@@ -111,6 +111,7 @@ export default function App() {
     [showCompletionTime, visibleTasks]
   );
   const searchableTasks = useMemo(() => getSearchableTasks(tasks), [tasks]);
+  const clientProfiles = useMemo(() => getClientProfiles(tasks), [tasks]);
   const clientSoftwareByName = useMemo(() => getClientSoftwareByName(tasks), [tasks]);
   const getCount = useCallback((tab) => getTaskCountForTab(tasks, tab), [tasks]);
   const visibleTaskIds = useMemo(() => new Set(visibleTasks.map((task) => task._id)), [visibleTasks]);
@@ -504,7 +505,7 @@ export default function App() {
           )}
         </section>
       </div>
-      <TaskModal isOpen={isModalOpen} onClose={closeTaskModal} onSubmit={handleTaskSubmit} initialValues={editingTask || undefined} clientSoftwareByName={clientSoftwareByName} submitLabel={editingTask ? 'Update Task' : 'Create Task'} mode={editingTask ? 'edit' : 'create'} isSubmitting={isSubmittingTask} />
+      <TaskModal isOpen={isModalOpen} onClose={closeTaskModal} onSubmit={handleTaskSubmit} initialValues={editingTask || undefined} clientProfiles={clientProfiles} clientSoftwareByName={clientSoftwareByName} submitLabel={editingTask ? 'Update Task' : 'Create Task'} mode={editingTask ? 'edit' : 'create'} isSubmitting={isSubmittingTask} />
       <ClientModal isOpen={Boolean(editingClient)} client={editingClient} onClose={closeClientModal} onSubmit={handleClientSubmit} isSubmitting={isSubmittingClient} />
       {isImportDialogOpen && <Suspense fallback={null}><ImportTasksModal isOpen preview={importPreview} onClose={closeImportDialog} onConfirm={confirmImport} onFileSelected={handleImportFileSelection} onDownloadTemplate={handleDownloadImportTemplate} isImporting={isImporting} /></Suspense>}
       <LoginModal isOpen={isLoginModalOpen} onClose={() => setIsLoginModalOpen(false)} onSubmit={handleLogin} isSubmitting={isLoggingIn} error={loginError} />
