@@ -1,5 +1,6 @@
-import * as XLSX from 'xlsx';
 import { getStatusLabel } from '../../../shared/config/statusConfig';
+
+let XLSX;
 
 const TEMPLATE_URL = `${process.env.PUBLIC_URL || ''}/templates/daily-outcome-updates-template.xlsx`;
 const TEMPLATE_SHEET_PATH = 'xl/worksheets/sheet5.xml';
@@ -295,6 +296,7 @@ function downloadWorkbook(bytes, filename) {
 
 export async function exportDailyOutcomeTasks(tasks, tabTitle, { filename, allowEmpty = false } = {}) {
   if (!tasks.length && !allowEmpty) return null;
+  XLSX = XLSX || await import('xlsx');
   const response = await fetch(TEMPLATE_URL);
   if (!response.ok) throw new Error('Unable to load the Daily Outcome Updates template.');
 

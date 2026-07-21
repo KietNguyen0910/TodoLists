@@ -25,7 +25,7 @@ module.exports = async function handler(req, res) {
   try {
     await connectDb();
     const tasks = await autoAssignInProgressSlots();
-    return res.status(200).json({ assignedCount: tasks.length, tasks });
+    return res.status(200).json({ assignedCount: tasks.length, tasks, autoAssignedTasks: tasks });
   } catch (error) {
     console.error('Auto-assign API error:', error.message);
     return res.status(500).json({ message: 'Failed to auto-assign tasks', error: error.message });

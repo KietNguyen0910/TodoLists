@@ -13,12 +13,12 @@ function getSafeFilenamePart(value) {
     .slice(0, 60) || 'task';
 }
 
-export function exportTask(task) {
+export async function exportTask(task) {
   const exportDate = getExportDate(task);
   const client = task.title || '_';
   const taskName = task.description || '_';
 
-  exportReportRows([
+  await exportReportRows([
     {
       id: task._id || `${client}-${taskName}`,
       activityDate: exportDate,

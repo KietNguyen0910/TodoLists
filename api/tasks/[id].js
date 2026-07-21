@@ -99,7 +99,7 @@ async function syncClientFieldsAcrossTasks(clientName, clientUpdates, actor) {
   });
   let updatedCount = 0;
 
-  await Promise.all(matchingTasks.map(async (matchingTask) => {
+  const updatedTasks = await Promise.all(matchingTasks.map(async (matchingTask) => {
     const currentTask = matchingTask.toObject();
     const changes = Object.entries(clientUpdates)
       .map(([field, value]) => {
@@ -109,19 +109,20 @@ async function syncClientFieldsAcrossTasks(clientName, clientUpdates, actor) {
         return { field, label: config.label, from, to };
       })
       .filter(({ from, to }) => JSON.stringify(from) !== JSON.stringify(to));
-    if (changes.length === 0) return;
+    if (changes.length === 0) return serializeTask(matchingTask);
 
     updatedCount += 1;
-    await Task.findByIdAndUpdate(matchingTask._id, {
+    const updatedTask = await Task.findByIdAndUpdate(matchingTask._id, {
       ...clientUpdates,
       auditLogs: [
         ...(currentTask.auditLogs || []),
         createAuditLog('updated', changes, actor),
       ],
-    });
+    }, { new: true });
+    return serializeTask(updatedTask);
   }));
 
-  return { matchedCount: matchingTasks.length, updatedCount };
+  return { matchedCount: matchingTasks.length, updatedCount, tasks: updatedTasks };
 }
 
 module.exports = async function handler(req, res) {
@@ -142,6 +143,29 @@ module.exports = async function handler(req, res) {
       if (!authUser) return;
 
       const actor = authUser.label || 'User';
+      if (id === 'client') {
+        const clientName = normalizeTaskText(req.body?.clientName);
+        const rawUpdates = req.body?.updates || {};
+        if (!clientName) return res.status(400).json({ message: 'Client name is required.' });
+
+        const clientUpdates = {};
+        if (rawUpdates.software !== undefined) clientUpdates.software = rawUpdates.software || '';
+        if (rawUpdates.payroll !== undefined) clientUpdates.payroll = normalizePayroll(rawUpdates.payroll);
+        if (rawUpdates.properties !== undefined) clientUpdates.properties = normalizeProperties(rawUpdates.properties);
+        if (rawUpdates.motorVehicles !== undefined) clientUpdates.motorVehicles = normalizeMotorVehicles(rawUpdates.motorVehicles);
+        if (Object.keys(clientUpdates).length === 0) return res.status(400).json({ message: 'Select at least one client field to update.' });
+
+        const matchingTasks = await Task.find({
+          title: { $regex: new RegExp(`^${escapeRegex(clientName)}$`, 'i') },
+          deleted: { $ne: true },
+          isDeleted: { $ne: true },
+        });
+        if (matchingTasks.length === 0) return res.status(404).json({ message: 'Client was not found.' });
+
+        const syncResult = await syncClientFieldsAcrossTasks(clientName, clientUpdates, actor);
+        return res.status(200).json(syncResult);
+      }
+
       const { title, description, software, payroll, properties, motorVehicles, outcomeAchieved, assignDate, deadline, notes, status, deleted, syncSoftwareForClient, syncClientFields } = req.body;
       const VALID_STATUSES = [
         'Lodged/Completed',
@@ -231,11 +255,14 @@ module.exports = async function handler(req, res) {
         return res.status(404).json({ message: 'Task not found' });
       }
 
-      await autoAssignInProgressSlots();
-
       const clientUpdates = getClientSyncUpdates(updates, syncClientFields, syncSoftwareForClient);
       const syncResult = Object.keys(clientUpdates).length ? await syncClientFieldsAcrossTasks(task.title, clientUpdates, actor) : null;
-      return res.status(200).json(syncResult ? { task: serializeTask(task), ...syncResult } : serializeTask(task));
+      const autoAssignedTasks = await autoAssignInProgressSlots();
+      return res.status(200).json({
+        task: serializeTask(task),
+        ...(syncResult || {}),
+        autoAssignedTasks: autoAssignedTasks.map(serializeTask),
+      });
     }
 
     if (req.method === 'DELETE') {
@@ -248,9 +275,15 @@ module.exports = async function handler(req, res) {
         return res.status(404).json({ message: 'Task not found' });
       }
 
-      await autoAssignInProgressSlots();
+      const autoAssignedTasks = await autoAssignInProgressSlots();
 
-      return res.status(200).json({ message: 'Task deleted successfully', isDeleted: true, deleted: true });
+      return res.status(200).json({
+        message: 'Task deleted successfully',
+        isDeleted: true,
+        deleted: true,
+        deletedIds: [String(task._id)],
+        autoAssignedTasks: autoAssignedTasks.map(serializeTask),
+      });
     }
 
     return res.status(405).json({ message: 'Method not allowed' });

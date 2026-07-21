@@ -1,12 +1,13 @@
+import { memo, useCallback } from 'react';
 import { getOutcomeProgress } from '../../outcomes/logic/outcomeProgress';
 import { getSoftwareColor } from '../../../shared/config/softwareConfig';
 import { isInteractiveElement } from '../../../shared/utils/domUtils';
 import { formatDateTime, formatPayroll, formatTaskDate, hexToRgba } from '../utils/taskFormatters';
 
-export default function TaskCard({
+const TaskCard = memo(function TaskCard({
   index,
   task,
-  taskRef,
+  taskRefs,
   isSelected = false,
   onSelect,
   statusMap,
@@ -61,9 +62,12 @@ export default function TaskCard({
       shiftKey: Boolean(inputEvent.shiftKey),
     });
   };
+  const setTaskRef = useCallback((element) => {
+    taskRefs.current[task._id] = element;
+  }, [task._id, taskRefs]);
 
   return (
-    <tr ref={taskRef} className={`task-row ${isHighlighted ? 'is-highlighted' : ''}`} onDoubleClick={handleRowDoubleClick} style={{ backgroundColor: useNeutralRowBackground ? '#fff' : hexToRgba(statusConfig.color || '#ffffff', 0.3) }}>
+    <tr ref={setTaskRef} className={`task-row ${isHighlighted ? 'is-highlighted' : ''}`} onDoubleClick={handleRowDoubleClick} style={{ backgroundColor: useNeutralRowBackground ? '#fff' : hexToRgba(statusConfig.color || '#ffffff', 0.3) }}>
       <td className="task-select-cell">
         <input
           type="checkbox"
@@ -115,4 +119,6 @@ export default function TaskCard({
       </td>
     </tr>
   );
-}
+});
+
+export default TaskCard;

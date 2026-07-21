@@ -97,7 +97,7 @@ async function syncClientFieldsAcrossTasks(clientName, clientUpdates, actor) {
   });
   let updatedCount = 0;
 
-  await Promise.all(matchingTasks.map(async (matchingTask) => {
+  const updatedTasks = await Promise.all(matchingTasks.map(async (matchingTask) => {
     const currentTask = matchingTask.toObject();
     const changes = Object.entries(clientUpdates)
       .map(([field, value]) => {
@@ -107,19 +107,20 @@ async function syncClientFieldsAcrossTasks(clientName, clientUpdates, actor) {
         return { field, label: config.label, from, to };
       })
       .filter(({ from, to }) => JSON.stringify(from) !== JSON.stringify(to));
-    if (changes.length === 0) return;
+    if (changes.length === 0) return serializeTask(matchingTask);
 
     updatedCount += 1;
-    await Task.findByIdAndUpdate(matchingTask._id, {
+    const updatedTask = await Task.findByIdAndUpdate(matchingTask._id, {
       ...clientUpdates,
       auditLogs: [
         ...(currentTask.auditLogs || []),
         createAuditLog('updated', changes, actor),
       ],
-    });
+    }, { new: true });
+    return serializeTask(updatedTask);
   }));
 
-  return { matchedCount: matchingTasks.length, updatedCount };
+  return { matchedCount: matchingTasks.length, updatedCount, tasks: updatedTasks };
 }
 
 module.exports = async function handler(req, res) {
@@ -181,9 +182,13 @@ module.exports = async function handler(req, res) {
       const task = await Task.create(taskPayload);
       const clientUpdates = getClientSyncUpdates(taskPayload, syncClientFields, syncSoftwareForClient);
       const syncResult = Object.keys(clientUpdates).length ? await syncClientFieldsAcrossTasks(task.title, clientUpdates, actor) : null;
-      await autoAssignInProgressSlots();
+      const autoAssignedTasks = await autoAssignInProgressSlots();
 
-      return res.status(201).json(syncResult ? { task: serializeTask(task), ...syncResult } : serializeTask(task));
+      return res.status(201).json({
+        task: serializeTask(task),
+        ...(syncResult || {}),
+        autoAssignedTasks: autoAssignedTasks.map(serializeTask),
+      });
     }
 
     return res.status(405).json({ message: 'Method not allowed' });

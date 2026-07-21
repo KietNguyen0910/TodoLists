@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { login as loginRequest } from '../../../api/authApi';
 import { clearStoredAuth, getStoredAuth } from '../utils/authStorage';
 
@@ -9,12 +9,12 @@ export function useAuth({ showToast } = {}) {
   const [loginError, setLoginError] = useState('');
   const isAuthenticated = Boolean(auth?.token);
 
-  const openLogin = () => {
+  const openLogin = useCallback(() => {
     setLoginError('');
     setIsLoginModalOpen(true);
-  };
+  }, []);
 
-  const handleLogin = async (username, password) => {
+  const handleLogin = useCallback(async (username, password) => {
     setIsLoggingIn(true);
     setLoginError('');
     try {
@@ -27,27 +27,27 @@ export function useAuth({ showToast } = {}) {
     } finally {
       setIsLoggingIn(false);
     }
-  };
+  }, [showToast]);
 
-  const handleLogout = () => {
+  const handleLogout = useCallback(() => {
     clearStoredAuth();
     setAuth(null);
     showToast?.('Logged out. Continuing as Guest.');
-  };
+  }, [showToast]);
 
-  const requireLogin = (action) => {
+  const requireLogin = useCallback((action) => {
     if (isAuthenticated) return true;
 
     openLogin();
     showToast?.(`Please login to ${action}.`);
     return false;
-  };
+  }, [isAuthenticated, openLogin, showToast]);
 
-  const expireSession = () => {
+  const expireSession = useCallback(() => {
     setAuth(null);
     openLogin();
     showToast?.('Session expired. Please login again.');
-  };
+  }, [openLogin, showToast]);
 
   return {
     auth,

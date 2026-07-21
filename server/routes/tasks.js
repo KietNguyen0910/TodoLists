@@ -212,16 +212,24 @@ router.post('/', requireAuth, async (req, res) => {
       const task = taskStore.createTask(taskPayload);
       const clientUpdates = getClientSyncUpdates(task, syncClientFields, syncSoftwareForClient);
       const syncResult = Object.keys(clientUpdates).length ? await syncClientFieldsAcrossTasks(task.title, clientUpdates, actor) : null;
-      await autoAssignInProgressSlots();
-      return res.status(201).json(syncResult ? { task, ...syncResult } : task);
+      const autoAssignedTasks = await autoAssignInProgressSlots();
+      return res.status(201).json({
+        task,
+        ...(syncResult || {}),
+        autoAssignedTasks,
+      });
     }
 
     const task = new Task(taskPayload);
     await task.save();
     const clientUpdates = getClientSyncUpdates(taskPayload, syncClientFields, syncSoftwareForClient);
     const syncResult = Object.keys(clientUpdates).length ? await syncClientFieldsAcrossTasks(task.title, clientUpdates, actor) : null;
-    await autoAssignInProgressSlots();
-    res.status(201).json(syncResult ? { task: serializeTask(task), ...syncResult } : serializeTask(task));
+    const autoAssignedTasks = await autoAssignInProgressSlots();
+    res.status(201).json({
+      task: serializeTask(task),
+      ...(syncResult || {}),
+      autoAssignedTasks: autoAssignedTasks.map(serializeTask),
+    });
   } catch (error) {
     res.status(500).json({ message: 'Failed to create task', error: error.message });
   }
@@ -344,6 +352,7 @@ router.post('/import', requireAuth, async (req, res) => {
       invalidRows,
       skippedRows: [...duplicateIncomingRows, ...skippedExistingRows],
       tasks: [...createdTasks, ...restoredTasks].map(serializeTask),
+      autoAssignedTasks: autoAssignedTasks.map(serializeTask),
     });
   } catch (error) {
     return res.status(500).json({ message: 'Failed to import tasks', error: error.message });
@@ -366,8 +375,12 @@ router.post('/bulk-delete', requireAuth, async (req, res) => {
       const deletedTasks = taskIds
         .map((taskId) => taskStore.updateTask(taskId, { deleted: true }, actor))
         .filter(Boolean);
-      await autoAssignInProgressSlots();
-      return res.json({ deletedCount: deletedTasks.length });
+      const autoAssignedTasks = await autoAssignInProgressSlots();
+      return res.json({
+        deletedCount: deletedTasks.length,
+        deletedIds: deletedTasks.map((task) => String(task._id)),
+        autoAssignedTasks,
+      });
     }
 
     const existingTasks = await Task.find({ _id: { $in: taskIds }, deleted: { $ne: true } });
@@ -380,9 +393,13 @@ router.post('/bulk-delete', requireAuth, async (req, res) => {
       ];
       return Task.findByIdAndUpdate(task._id, updates);
     }));
-    await autoAssignInProgressSlots();
+    const autoAssignedTasks = await autoAssignInProgressSlots();
 
-    return res.json({ deletedCount: existingTasks.length });
+    return res.json({
+      deletedCount: existingTasks.length,
+      deletedIds: existingTasks.map((task) => String(task._id)),
+      autoAssignedTasks: autoAssignedTasks.map(serializeTask),
+    });
   } catch (error) {
     return res.status(500).json({ message: 'Failed to delete tasks', error: error.message });
   }
@@ -429,7 +446,13 @@ router.post('/bulk-status', requireAuth, async (req, res) => {
     }
 
     const autoAssignedTasks = await autoAssignInProgressSlots();
-    return res.json({ matchedCount: matchingTasks.length, updatedCount, autoAssignedCount: autoAssignedTasks.length, tasks: updatedTasks });
+    return res.json({
+      matchedCount: matchingTasks.length,
+      updatedCount,
+      autoAssignedCount: autoAssignedTasks.length,
+      tasks: updatedTasks,
+      autoAssignedTasks: autoAssignedTasks.map(serializeTask),
+    });
   } catch (error) {
     return res.status(500).json({ message: 'Failed to update task statuses.', error: error.message });
   }
@@ -528,6 +551,7 @@ router.post('/auto-assign', requireAuth, async (req, res) => {
     return res.json({
       assignedCount: autoAssignedTasks.length,
       tasks: autoAssignedTasks.map(serializeTask),
+      autoAssignedTasks: autoAssignedTasks.map(serializeTask),
     });
   } catch (error) {
     return res.status(500).json({ message: 'Failed to auto-assign tasks', error: error.message });
@@ -587,8 +611,12 @@ router.patch('/:id', requireAuth, async (req, res) => {
       }
       const clientUpdates = getClientSyncUpdates(updates, syncClientFields, syncSoftwareForClient);
       const syncResult = Object.keys(clientUpdates).length ? await syncClientFieldsAcrossTasks(task.title, clientUpdates, actor) : null;
-      await autoAssignInProgressSlots();
-      return res.json(syncResult ? { task, ...syncResult } : task);
+      const autoAssignedTasks = await autoAssignInProgressSlots();
+      return res.json({
+        task,
+        ...(syncResult || {}),
+        autoAssignedTasks,
+      });
     }
 
     const existingTask = await Task.findById(req.params.id);
@@ -615,9 +643,13 @@ router.patch('/:id', requireAuth, async (req, res) => {
 
     const clientUpdates = getClientSyncUpdates(updates, syncClientFields, syncSoftwareForClient);
     const syncResult = Object.keys(clientUpdates).length ? await syncClientFieldsAcrossTasks(task.title, clientUpdates, actor) : null;
-    await autoAssignInProgressSlots();
+    const autoAssignedTasks = await autoAssignInProgressSlots();
 
-    res.json(syncResult ? { task: serializeTask(task), ...syncResult } : serializeTask(task));
+    res.json({
+      task: serializeTask(task),
+      ...(syncResult || {}),
+      autoAssignedTasks: autoAssignedTasks.map(serializeTask),
+    });
   } catch (error) {
     res.status(500).json({ message: 'Failed to update task', error: error.message });
   }

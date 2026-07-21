@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { formatTaskMeta, searchTasks } from '../logic/searchTasks';
 
 export default function GlobalSearch({ tasks, onSelect }) {
@@ -7,7 +7,8 @@ export default function GlobalSearch({ tasks, onSelect }) {
   const [activeIndex, setActiveIndex] = useState(0);
   const wrapperRef = useRef(null);
 
-  const results = useMemo(() => searchTasks(tasks, query), [query, tasks]);
+  const deferredQuery = useDeferredValue(query);
+  const results = useMemo(() => searchTasks(tasks, deferredQuery), [deferredQuery, tasks]);
 
   useEffect(() => {
     setActiveIndex(0);

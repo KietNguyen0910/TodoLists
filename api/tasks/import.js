@@ -193,6 +193,7 @@ module.exports = async function handler(req, res) {
       invalidRows,
       skippedRows: [...duplicateIncomingRows, ...skippedExistingRows],
       tasks: [...createdTasks, ...restoredTasks].map(serializeTask),
+      autoAssignedTasks: autoAssignedTasks.map(serializeTask),
     });
   } catch (error) {
     console.error('Import API error:', error.message);

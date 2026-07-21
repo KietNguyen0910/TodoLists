@@ -120,10 +120,10 @@ export default function ReportView({ tasks }) {
     return filterRowsByClient(reportRows, clientSearch);
   }, [tasks, fromDate, toDate, reportType, clientSearch, hasSearch, hasValidRange]);
 
-  const handleExport = () => {
+  const handleExport = async () => {
     if (!rows.length) return;
 
-    exportReportRows(rows, reportType, fromDate || 'all', toDate || 'all');
+    await exportReportRows(rows, reportType, fromDate || 'all', toDate || 'all');
   };
 
   const handleDateRangePresetChange = (preset) => {

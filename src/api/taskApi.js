@@ -2,8 +2,8 @@ import { API_BASE_URL, apiRequest } from './httpClient';
 
 const TASKS_URL = `${API_BASE_URL}/api/tasks`;
 
-export function getTasks() {
-  return apiRequest(TASKS_URL);
+export function getTasks(options = {}) {
+  return apiRequest(TASKS_URL, options);
 }
 
 export function createTask(task) {

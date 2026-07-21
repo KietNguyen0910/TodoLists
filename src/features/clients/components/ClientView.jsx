@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useDeferredValue, useMemo, useState } from 'react';
 import { getSoftwareColor } from '../../../shared/config/softwareConfig';
 import { formatPayroll } from '../../../shared/utils/valueFormatters';
 
@@ -74,11 +74,12 @@ function SoftwareValueList({ values }) {
 export default function ClientView({ tasks, onEdit, onRequireLogin, isReadOnly = false }) {
   const [expandedClientKey, setExpandedClientKey] = useState(null);
   const [clientSearch, setClientSearch] = useState('');
+  const deferredClientSearch = useDeferredValue(clientSearch);
   const clients = useMemo(() => getClientRecords(tasks), [tasks]);
   const filteredClients = useMemo(() => {
-    const keyword = clientSearch.trim().toLocaleLowerCase();
+    const keyword = deferredClientSearch.trim().toLocaleLowerCase();
     return keyword ? clients.filter((client) => client.name.toLocaleLowerCase().includes(keyword)) : clients;
-  }, [clientSearch, clients]);
+  }, [clients, deferredClientSearch]);
 
   return (
     <div className="client-view">

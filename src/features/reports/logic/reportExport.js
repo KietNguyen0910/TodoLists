@@ -1,9 +1,10 @@
-import * as XLSX from 'xlsx';
 import { formatDateTime } from '../../../shared/utils/dateUtils';
 import { REPORT_TYPES } from '../utils/reportFormatters';
 
-export function exportReportRows(rows, reportType, fromDate, toDate, filename) {
+export async function exportReportRows(rows, reportType, fromDate, toDate, filename) {
   if (!rows.length) return;
+
+  const XLSX = await import('xlsx');
 
   const data = rows.map((row) => ({
     'Activity Date': formatDateTime(row.activityDate),

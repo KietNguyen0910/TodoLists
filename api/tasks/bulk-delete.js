@@ -49,7 +49,12 @@ module.exports = async function handler(req, res) {
     })));
 
     const autoAssignedTasks = await autoAssignInProgressSlots();
-    return res.status(200).json({ deletedCount: tasks.length, autoAssignedCount: autoAssignedTasks.length });
+    return res.status(200).json({
+      deletedCount: tasks.length,
+      deletedIds: tasks.map((task) => String(task._id)),
+      autoAssignedCount: autoAssignedTasks.length,
+      autoAssignedTasks,
+    });
   } catch (error) {
     console.error('Bulk delete API error:', error.message);
     return res.status(500).json({ message: 'Failed to delete tasks', error: error.message });

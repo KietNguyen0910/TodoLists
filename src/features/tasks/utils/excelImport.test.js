@@ -20,7 +20,8 @@ function createExcelFile(sheets, activeSheetIndex = 0) {
   sheets.forEach(([name, rows]) => XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(rows), name));
   workbook.Workbook = {
     ...(workbook.Workbook || {}),
-    WBProps: { ...(workbook.Workbook?.WBProps || {}), activeTab: activeSheetIndex },
+    // SheetJS writes the first visible worksheet as the active sheet.
+    Sheets: sheets.map(([_name], index) => ({ Hidden: activeSheetIndex > 0 && index < activeSheetIndex ? 1 : 0 })),
   };
   const data = XLSX.write(workbook, { type: 'array', bookType: 'xlsx' });
   return { arrayBuffer: async () => data };

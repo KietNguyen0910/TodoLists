@@ -1,4 +1,4 @@
-import * as XLSX from 'xlsx';
+let XLSX;
 
 const STATUS_ALIASES = new Map([
   ['lodged completed', 'Lodged/Completed'],
@@ -141,11 +141,14 @@ function parseWorksheet(sheet, sheetName) {
 }
 
 export async function parseExcelFile(file) {
+  XLSX = XLSX || await import('xlsx');
   const data = await file.arrayBuffer();
   const workbook = XLSX.read(data, { type: 'array', cellDates: true });
   const allTasks = [];
   const invalidRows = [];
-  const activeSheetIndex = workbook.Workbook?.WBProps?.activeTab;
+  const activeSheetIndex = workbook.Workbook?.WBView?.[0]?.activeTab
+    ?? workbook.Workbook?.Views?.[0]?.activeTab
+    ?? workbook.Workbook?.WBProps?.activeTab;
   const sheetMetadata = workbook.Workbook?.Sheets || [];
   const activeSheetName = workbook.SheetNames[activeSheetIndex];
   const isActiveSheetVisible = sheetMetadata[activeSheetIndex]?.Hidden !== 1 && sheetMetadata[activeSheetIndex]?.Hidden !== 2;

@@ -61,7 +61,13 @@ module.exports = async function handler(req, res) {
     }
 
     const autoAssignedTasks = await autoAssignInProgressSlots();
-    return res.status(200).json({ matchedCount: tasks.length, updatedCount, autoAssignedCount: autoAssignedTasks.length, tasks: updatedTasks });
+    return res.status(200).json({
+      matchedCount: tasks.length,
+      updatedCount,
+      autoAssignedCount: autoAssignedTasks.length,
+      tasks: updatedTasks,
+      autoAssignedTasks,
+    });
   } catch (error) {
     console.error('Bulk status API error:', error.message);
     return res.status(500).json({ message: 'Failed to update task statuses.', error: error.message });

@@ -1,16 +1,13 @@
-import { useEffect, useRef, useState } from 'react';
-import { autoAssignTasks, createTask, deleteTasks, importTasks, updateClientTasks, updateTask, updateTasksStatus } from './api/taskApi';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { CLIENT_TAB, REPORT_TAB, TASK_TABS as TABS } from './app/tabs.config';
 import DeleteConfirmModal from './components/DeleteConfirmModal';
-import ImportTasksModal from './components/ImportTasksModal';
 import LoginModal from './components/LoginModal';
-import ReportView from './components/ReportView';
 import SoftwareSyncConfirmModal from './components/SoftwareSyncConfirmModal';
 import TaskHistoryModal from './components/TaskHistoryModal';
 import TaskModal from './components/TaskModal';
 import { useAuth } from './features/auth/hooks/useAuth';
 import { getClientSoftwareByName, getClientSyncCount } from './features/clients/logic/softwareSync';
-import ClientView from './features/clients/components/ClientView';
 import ClientModal from './features/clients/components/ClientModal';
 import NotificationBell from './features/notifications/components/NotificationBell';
 import { useWaitingNotifications } from './features/notifications/hooks/useWaitingNotifications';
@@ -23,14 +20,17 @@ import { getEmptyTaskTableColumnClasses } from './features/tasks/logic/taskTable
 import { getTaskRangeIds } from './features/tasks/logic/taskSelection';
 import { getDefaultTaskSortMode, sortTasksForTab, TASK_SORT_MODES } from './features/tasks/logic/taskSorting';
 import { useTasks } from './features/tasks/hooks/useTasks';
+import { TASKS_QUERY_KEY } from './features/tasks/hooks/useTasks';
 import { useTaskNavigation, useTaskTab } from './features/tasks/hooks/useTaskNavigation';
 import { buildImportPreview, parseExcelFile } from './features/tasks/utils/excelImport';
 import { exportDailyOutcomeTasks } from './features/tasks/utils/dailyOutcomeExport';
-import { downloadJobNewsTemplate } from './features/tasks/utils/jobNewsTemplate';
 import { STATUS_MAP } from './shared/config/statusConfig';
 import { useToast } from './shared/hooks/useToast';
 
 const CLIENT_SYNC_FIELDS = ['software', 'payroll', 'properties', 'motorVehicles'];
+const ClientView = lazy(() => import('./features/clients/components/ClientView'));
+const ImportTasksModal = lazy(() => import('./components/ImportTasksModal'));
+const ReportView = lazy(() => import('./components/ReportView'));
 const CLIENT_SYNC_LABELS = {
   software: 'Software',
   payroll: 'Payroll',
@@ -40,7 +40,8 @@ const CLIENT_SYNC_LABELS = {
 const valuesMatch = (first, second) => JSON.stringify(first ?? null) === JSON.stringify(second ?? null);
 
 export default function App() {
-  const { tasks, loading, error, setError, loadTasks } = useTasks();
+  const { tasks, loading, error, setError, mutations } = useTasks();
+  const queryClient = useQueryClient();
   const { toastMessage, showToast } = useToast();
   const {
     auth,
@@ -80,24 +81,44 @@ export default function App() {
   const autoAssignSessionRef = useRef(null);
   const autoBackupDayRef = useRef(null);
 
+  const clearTaskCache = useCallback(() => {
+    queryClient.removeQueries({ queryKey: TASKS_QUERY_KEY });
+  }, [queryClient]);
+
+  const handleLogoutAndClearCache = useCallback(() => {
+    clearTaskCache();
+    handleLogout();
+  }, [clearTaskCache, handleLogout]);
+
+  const expireSessionAndClearCache = useCallback(() => {
+    clearTaskCache();
+    expireSession();
+  }, [clearTaskCache, expireSession]);
+
   const isReportTab = activeTabId === REPORT_TAB.id;
   const isClientTab = activeTabId === CLIENT_TAB.id;
   const isSpecialTab = isReportTab || isClientTab;
   const activeTab = isReportTab ? REPORT_TAB : isClientTab ? CLIENT_TAB : TABS.find((tab) => tab.id === activeTabId) || TABS[0];
   const showCompletionTime = activeTab.id === 'completed';
   const activeTaskSortMode = taskSortMode || getDefaultTaskSortMode(activeTab.id);
-  const visibleTasks = isSpecialTab ? [] : sortTasksForTab(
+  const visibleTasks = useMemo(() => (isSpecialTab ? [] : sortTasksForTab(
     getTasksForTab(tasks, activeTab),
     activeTab.id,
     activeTaskSortMode
+  )), [activeTab, activeTaskSortMode, isSpecialTab, tasks]);
+  const emptyTaskTableColumnClasses = useMemo(
+    () => getEmptyTaskTableColumnClasses(visibleTasks, showCompletionTime),
+    [showCompletionTime, visibleTasks]
   );
-  const emptyTaskTableColumnClasses = getEmptyTaskTableColumnClasses(visibleTasks, showCompletionTime);
-  const searchableTasks = getSearchableTasks(tasks);
-  const clientSoftwareByName = getClientSoftwareByName(tasks);
-  const getCount = (tab) => getTaskCountForTab(tasks, tab);
-  const visibleTaskIds = new Set(visibleTasks.map((task) => task._id));
-  const selectedVisibleIds = selectedTaskIds.filter((taskId) => visibleTaskIds.has(taskId));
-  const selectedTaskIdSet = new Set(selectedVisibleIds);
+  const searchableTasks = useMemo(() => getSearchableTasks(tasks), [tasks]);
+  const clientSoftwareByName = useMemo(() => getClientSoftwareByName(tasks), [tasks]);
+  const getCount = useCallback((tab) => getTaskCountForTab(tasks, tab), [tasks]);
+  const visibleTaskIds = useMemo(() => new Set(visibleTasks.map((task) => task._id)), [visibleTasks]);
+  const selectedVisibleIds = useMemo(
+    () => selectedTaskIds.filter((taskId) => visibleTaskIds.has(taskId)),
+    [selectedTaskIds, visibleTaskIds]
+  );
+  const selectedTaskIdSet = useMemo(() => new Set(selectedVisibleIds), [selectedVisibleIds]);
   const isAllVisibleSelected = visibleTasks.length > 0 && selectedVisibleIds.length === visibleTasks.length;
   const { highlightedTaskId, scrollToTask, taskRefs } = useTaskNavigation({
     tasks,
@@ -126,20 +147,19 @@ export default function App() {
     setAutoAssignReadyToken(null);
     const assignInitialTasks = async () => {
       try {
-        const result = await autoAssignTasks();
+        const result = await mutations.autoAssignTasks();
         if (!result.assignedCount) return;
 
-        await loadTasks();
         showToast(`Automatically assigned ${result.assignedCount} task${result.assignedCount === 1 ? '' : 's'} to In Progress.`);
       } catch (requestError) {
-        if (requestError?.status === 401) expireSession();
+        if (requestError?.status === 401) expireSessionAndClearCache();
       } finally {
         setAutoAssignReadyToken(sessionToken);
       }
     };
 
     assignInitialTasks();
-  }, [auth?.token, expireSession, isAuthenticated, loading, loadTasks, showToast]);
+  }, [auth?.token, expireSessionAndClearCache, isAuthenticated, loading, mutations, showToast]);
 
   useEffect(() => {
     if (loading || error || (isAuthenticated && autoAssignReadyToken !== auth?.token)) return;
@@ -220,8 +240,7 @@ export default function App() {
 
     setIsImporting(true);
     try {
-      const result = await importTasks(importPreview.tasks);
-      await loadTasks();
+      const result = await mutations.importTasks(importPreview.tasks);
       setImportPreview(null);
       setIsImportDialogOpen(false);
       showToast(`Imported ${result.importedCount} task${result.importedCount === 1 ? '' : 's'}${result.skippedCount ? `; ${result.skippedCount} duplicate${result.skippedCount === 1 ? '' : 's'} skipped` : ''}${result.autoAssignedCount ? `; ${result.autoAssignedCount} auto-assigned to In Progress` : ''}.`);
@@ -232,14 +251,14 @@ export default function App() {
     }
   };
 
-  const handleRequestError = (requestError, fallbackMessage) => {
+  const handleRequestError = useCallback((requestError, fallbackMessage) => {
     if (requestError?.status === 401) {
-      expireSession();
+      expireSessionAndClearCache();
       return;
     }
 
     setError(fallbackMessage);
-  };
+  }, [expireSessionAndClearCache, setError]);
 
   const submitTask = async (taskData, syncClientFields = []) => {
     if (!requireLogin(editingTask ? 'update tasks' : 'add tasks')) return;
@@ -247,13 +266,12 @@ export default function App() {
     setIsSubmittingTask(true);
     try {
       if (editingTask) {
-        const result = await updateTask(editingTask._id, { ...taskData, syncClientFields });
+        const result = await mutations.updateTask(editingTask._id, { ...taskData, syncClientFields });
         showToast(syncClientFields.length ? `Task updated; client fields synced across ${result.updatedCount} task${result.updatedCount === 1 ? '' : 's'}.` : 'Task updated successfully.');
       } else {
-        const result = await createTask({ ...taskData, syncSoftwareForClient: syncClientFields.includes('software') });
+        const result = await mutations.createTask({ ...taskData, syncSoftwareForClient: syncClientFields.includes('software') });
         showToast(syncClientFields.length ? `Task created; software synced across ${result.updatedCount} task${result.updatedCount === 1 ? '' : 's'}.` : 'Task created successfully.');
       }
-      await loadTasks();
       closeTaskModal();
     } catch (requestError) {
       handleRequestError(requestError, editingTask ? 'Unable to update task.' : 'Unable to create task.');
@@ -283,8 +301,7 @@ export default function App() {
 
     setIsSubmittingClient(true);
     try {
-      const result = await updateClientTasks(clientName, updates);
-      await loadTasks();
+      const result = await mutations.updateClientTasks(clientName, updates);
       setEditingClient(null);
       showToast(result.updatedCount ? `Client updated across ${result.updatedCount} task${result.updatedCount === 1 ? '' : 's'}.` : 'No client changes were needed.');
     } catch (requestError) {
@@ -335,7 +352,12 @@ export default function App() {
     }
   };
 
-  const handleStatusChange = async (taskId, status) => {
+  const handleDownloadImportTemplate = useCallback(async () => {
+    const { downloadJobNewsTemplate } = await import('./features/tasks/utils/jobNewsTemplate');
+    downloadJobNewsTemplate();
+  }, []);
+
+  const handleStatusChange = useCallback(async (taskId, status) => {
     if (!requireLogin('change task status')) return;
 
     const taskIds = selectedTaskIdSet.has(taskId) && selectedVisibleIds.length > 1 ? selectedVisibleIds : [taskId];
@@ -343,22 +365,21 @@ export default function App() {
     else setUpdatingStatusTaskId(taskId);
     try {
       const result = taskIds.length > 1
-        ? await updateTasksStatus(taskIds, status)
-        : await updateTask(taskId, { status });
+        ? await mutations.updateTasksStatus(taskIds, status)
+        : await mutations.updateTask(taskId, { status });
       setSelectedTaskIds([]);
       setSelectionAnchorTaskId(null);
       if (taskIds.length > 1) showToast(`Status updated for ${result.updatedCount} task${result.updatedCount === 1 ? '' : 's'}.`);
       else if (status === 'Lodged/Completed') showToast('Task status updated to Lodged/Completed.');
-      await loadTasks();
     } catch (requestError) {
       handleRequestError(requestError, 'Unable to update task.');
     } finally {
       setUpdatingStatusTaskId(null);
       setIsBulkStatusUpdating(false);
     }
-  };
+  }, [handleRequestError, mutations, requireLogin, selectedTaskIdSet, selectedVisibleIds, showToast]);
 
-  const toggleTaskSelection = (taskId, event) => {
+  const toggleTaskSelection = useCallback((taskId, event) => {
     if (event?.shiftKey && (event?.ctrlKey || event?.metaKey) && selectionAnchorTaskId) {
       const rangeIds = getTaskRangeIds(visibleTasks, selectionAnchorTaskId, taskId);
       if (rangeIds.length > 0) {
@@ -374,7 +395,7 @@ export default function App() {
         : [...currentIds, taskId]
     ));
     setSelectionAnchorTaskId(taskId);
-  };
+  }, [selectionAnchorTaskId, visibleTasks]);
 
   const toggleAllTaskSelection = () => {
     setSelectedTaskIds(isAllVisibleSelected ? [] : visibleTasks.map((task) => task._id));
@@ -385,6 +406,16 @@ export default function App() {
     if (taskIds.length === 0 || !requireLogin('delete tasks')) return;
     setTaskToDelete({ ids: taskIds });
   };
+
+  const requestSingleTaskDelete = useCallback((id, title) => {
+    setTaskToDelete({ ids: [id], title });
+  }, []);
+
+  const openTaskForEdit = useCallback((task) => {
+    if (!requireLogin('edit tasks')) return;
+    setEditingTask(task);
+    setIsModalOpen(true);
+  }, [requireLogin]);
 
   const confirmDelete = async () => {
     if (!taskToDelete) return;
@@ -397,14 +428,13 @@ export default function App() {
     try {
       const taskIds = taskToDelete.ids || [taskToDelete.id];
       if (taskIds.length === 1) {
-        await updateTask(taskIds[0], { deleted: true });
+        await mutations.updateTask(taskIds[0], { deleted: true });
       } else {
-        await deleteTasks(taskIds);
+        await mutations.deleteTasks(taskIds);
       }
       setSelectedTaskIds([]);
       setSelectionAnchorTaskId(null);
       showToast(`${taskIds.length} task${taskIds.length === 1 ? '' : 's'} deleted successfully.`);
-      await loadTasks();
     } catch (requestError) {
       handleRequestError(requestError, 'Unable to delete task.');
     } finally {
@@ -421,7 +451,7 @@ export default function App() {
           <GlobalSearch tasks={searchableTasks} onSelect={scrollToTask} />
           <NotificationBell notifications={notifications} unreadCount={unreadCount} onOpen={markNotificationsRead} onSelect={scrollToTask} />
           {isAuthenticated ? (
-            <button className="button-secondary auth-button" type="button" onClick={handleLogout}>Logout {auth.user?.label || auth.user?.username}</button>
+            <button className="button-secondary auth-button" type="button" onClick={handleLogoutAndClearCache}>Logout {auth.user?.label || auth.user?.username}</button>
           ) : (
             <button className="button-secondary auth-button" type="button" onClick={openLogin}>Login</button>
           )}
@@ -439,9 +469,9 @@ export default function App() {
         <section className="content">
           {error && <p className="error" role="alert">{error}</p>}
           {isReportTab ? (
-            loading ? <p className="empty">Loading tasks...</p> : <ReportView tasks={tasks} />
+            loading ? <p className="empty">Loading tasks...</p> : <Suspense fallback={<p className="empty">Loading report...</p>}><ReportView tasks={tasks} /></Suspense>
           ) : isClientTab ? (
-            loading ? <p className="empty">Loading clients...</p> : <ClientView tasks={tasks} onEdit={setEditingClient} onRequireLogin={requireLogin} isReadOnly={!isAuthenticated} />
+            loading ? <p className="empty">Loading clients...</p> : <Suspense fallback={<p className="empty">Loading clients...</p>}><ClientView tasks={tasks} onEdit={setEditingClient} onRequireLogin={requireLogin} isReadOnly={!isAuthenticated} /></Suspense>
           ) : (
             <>
               <div className="content-header">
@@ -462,7 +492,7 @@ export default function App() {
                   </select>
                 </label>
               </div>
-              {loading ? <TaskTableSkeleton showCompletionTime={showCompletionTime} /> : <div className="task-list">{visibleTasks.length === 0 ? <p className="empty">No tasks found.</p> : <table className={`task-table ${showCompletionTime ? 'has-completion-time' : ''} ${emptyTaskTableColumnClasses}`}><thead><tr><th className="task-select-column"><input ref={selectAllCheckboxRef} type="checkbox" checked={isAllVisibleSelected} onChange={toggleAllTaskSelection} aria-label={`Select all tasks in ${activeTab.title}`} /></th><th>No</th><th>Assign Date</th><th>Software</th><th>Client</th><th>Task</th><th className="payroll-column">Payroll</th><th>Property</th><th>Motor Vehicle</th><th className="outcome-column">Outcome Achieved</th><th className="note-column">Note</th>{showCompletionTime && <th>Completion Date</th>}<th className="task-status-column">Status</th></tr></thead><tbody>{visibleTasks.map((task, index) => <TaskCard key={task._id} taskRef={(element) => { taskRefs.current[task._id] = element; }} index={index + 1} task={task} isSelected={selectedTaskIdSet.has(task._id)} onSelect={toggleTaskSelection} statusMap={STATUS_MAP} onStatusChange={handleStatusChange} onDelete={(id, title) => setTaskToDelete({ ids: [id], title })} onEdit={(task) => { if (!requireLogin('edit tasks')) return; setEditingTask(task); setIsModalOpen(true); }} onViewHistory={setHistoryTask} onRequireLogin={requireLogin} showCompletionTime={showCompletionTime} hideEmptyOutcomeProgress={activeTab.id === 'completed'} isStatusUpdating={isBulkStatusUpdating || updatingStatusTaskId === task._id} isHighlighted={highlightedTaskId === task._id} isReadOnly={!isAuthenticated} useNeutralRowBackground={activeTab.id === 'information-received' || (activeTab.id === 'todo' && task.status === 'On hold')} />)}</tbody></table>}</div>}
+              {loading ? <TaskTableSkeleton showCompletionTime={showCompletionTime} /> : <div className="task-list">{visibleTasks.length === 0 ? <p className="empty">No tasks found.</p> : <table className={`task-table ${showCompletionTime ? 'has-completion-time' : ''} ${emptyTaskTableColumnClasses}`}><thead><tr><th className="task-select-column"><input ref={selectAllCheckboxRef} type="checkbox" checked={isAllVisibleSelected} onChange={toggleAllTaskSelection} aria-label={`Select all tasks in ${activeTab.title}`} /></th><th>No</th><th>Assign Date</th><th>Software</th><th>Client</th><th>Task</th><th className="payroll-column">Payroll</th><th>Property</th><th>Motor Vehicle</th><th className="outcome-column">Outcome Achieved</th><th className="note-column">Note</th>{showCompletionTime && <th>Completion Date</th>}<th className="task-status-column">Status</th></tr></thead><tbody>{visibleTasks.map((task, index) => <TaskCard key={task._id} taskRefs={taskRefs} index={index + 1} task={task} isSelected={selectedTaskIdSet.has(task._id)} onSelect={toggleTaskSelection} statusMap={STATUS_MAP} onStatusChange={handleStatusChange} onDelete={requestSingleTaskDelete} onEdit={openTaskForEdit} onViewHistory={setHistoryTask} onRequireLogin={requireLogin} showCompletionTime={showCompletionTime} hideEmptyOutcomeProgress={activeTab.id === 'completed'} isStatusUpdating={isBulkStatusUpdating || updatingStatusTaskId === task._id} isHighlighted={highlightedTaskId === task._id} isReadOnly={!isAuthenticated} useNeutralRowBackground={activeTab.id === 'information-received' || (activeTab.id === 'todo' && task.status === 'On hold')} />)}</tbody></table>}</div>}
               {!loading && (
                 <div className="task-table-export-actions">
                   <button className="button-primary" type="button" disabled={visibleTasks.length === 0 || isExportingTasks} onClick={handleTaskTableExport}>
@@ -476,7 +506,7 @@ export default function App() {
       </div>
       <TaskModal isOpen={isModalOpen} onClose={closeTaskModal} onSubmit={handleTaskSubmit} initialValues={editingTask || undefined} clientSoftwareByName={clientSoftwareByName} submitLabel={editingTask ? 'Update Task' : 'Create Task'} mode={editingTask ? 'edit' : 'create'} isSubmitting={isSubmittingTask} />
       <ClientModal isOpen={Boolean(editingClient)} client={editingClient} onClose={closeClientModal} onSubmit={handleClientSubmit} isSubmitting={isSubmittingClient} />
-      <ImportTasksModal isOpen={isImportDialogOpen} preview={importPreview} onClose={closeImportDialog} onConfirm={confirmImport} onFileSelected={handleImportFileSelection} onDownloadTemplate={downloadJobNewsTemplate} isImporting={isImporting} />
+      {isImportDialogOpen && <Suspense fallback={null}><ImportTasksModal isOpen preview={importPreview} onClose={closeImportDialog} onConfirm={confirmImport} onFileSelected={handleImportFileSelection} onDownloadTemplate={handleDownloadImportTemplate} isImporting={isImporting} /></Suspense>}
       <LoginModal isOpen={isLoginModalOpen} onClose={() => setIsLoginModalOpen(false)} onSubmit={handleLogin} isSubmitting={isLoggingIn} error={loginError} />
       <TaskHistoryModal isOpen={Boolean(historyTask)} task={historyTask} onClose={() => setHistoryTask(null)} />
       <DeleteConfirmModal isOpen={Boolean(taskToDelete)} taskTitle={taskToDelete?.title} taskCount={taskToDelete?.ids?.length || 1} onConfirm={confirmDelete} onCancel={() => setTaskToDelete(null)} isDeleting={isDeletingTask} />
