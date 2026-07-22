@@ -1,4 +1,18 @@
-import { buildDailyOutcomeRows, splitDailyOutcomeNotes } from './dailyOutcomeExport';
+import { buildDailyOutcomeRows, getDailyOutcomeFilename, splitDailyOutcomeNotes } from './dailyOutcomeExport';
+
+describe('Daily Outcome Updates export filename', () => {
+  const exportDate = new Date(2026, 6, 22);
+
+  it.each([
+    ['Information Received', 'Information Received - 22-07-26 - Cassie.xlsx'],
+    ['In Progress', 'In Progress - 22-07-26 - Cassie.xlsx'],
+    ['Waiting Information Request', 'Waiting Information Request - 22-07-26 - Cassie.xlsx'],
+    ['Waiting for Review', 'Waiting for Review - 22-07-26 - Cassie.xlsx'],
+    ['Completed Tasks', 'Completed Tasks - 22-07-26 - Cassie.xlsx'],
+  ])('uses the tab title and date for %s', (tabTitle, expectedFilename) => {
+    expect(getDailyOutcomeFilename(tabTitle, exportDate)).toBe(expectedFilename);
+  });
+});
 
 describe('Daily Outcome Updates export rows', () => {
   it('splits the labelled note blocks into their template columns', () => {

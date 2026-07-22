@@ -274,12 +274,12 @@ function keepOnlyTemplateSheet(cfb, lastRow) {
   deleteFile(cfb, 'xl/calcChain.xml');
 }
 
-function getSafeFilenamePart(value) {
-  return String(value || 'tasks')
-    .trim()
-    .replace(/[^a-z0-9]+/gi, '-')
-    .replace(/^-+|-+$/g, '')
-    .toLowerCase() || 'tasks';
+export function getDailyOutcomeFilename(tabTitle, date = new Date()) {
+  const title = String(tabTitle || 'Tasks').trim() || 'Tasks';
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = String(date.getFullYear()).slice(-2);
+  return `${title} - ${day}.${month}.${year} - Cassie.xlsx`;
 }
 
 function downloadWorkbook(bytes, filename) {
@@ -306,7 +306,7 @@ export async function exportDailyOutcomeTasks(tasks, tabTitle, { filename, allow
   setTextContent(cfb, TEMPLATE_SHEET_PATH, worksheet.xml);
   keepOnlyTemplateSheet(cfb, worksheet.lastRow);
 
-  const exportFilename = filename || `daily-outcome-updates-${getSafeFilenamePart(tabTitle)}-${new Date().toISOString().slice(0, 10)}.xlsx`;
+  const exportFilename = filename || getDailyOutcomeFilename(tabTitle);
   downloadWorkbook(XLSX.CFB.write(cfb, { type: 'array', fileType: 'zip', compression: true }), exportFilename);
   return exportFilename;
 }
