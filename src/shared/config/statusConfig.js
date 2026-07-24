@@ -4,6 +4,16 @@ export const STATUS_MAP = {
     color: '#fff',
     column: 'done',
   },
+  'Out To Sign': {
+    label: 'Out To Sign',
+    color: '#2563eb',
+    column: 'inprogress',
+  },
+  Singed: {
+    label: 'Singed',
+    color: '#9333ea',
+    column: 'done',
+  },
   'Waiting for review': {
     label: 'Waiting for review',
     color: '#f59e0b',

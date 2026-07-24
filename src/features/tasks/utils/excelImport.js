@@ -2,6 +2,8 @@ let XLSX;
 
 const STATUS_ALIASES = new Map([
   ['lodged completed', 'Lodged/Completed'],
+  ['out to sign', 'Out To Sign'],
+  ['singed', 'Singed'],
   ['waiting manager review', 'Waiting for review'],
   ['waiting for review', 'Waiting for review'],
   ['waiting client', 'Waiting client'],

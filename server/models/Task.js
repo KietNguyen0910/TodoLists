@@ -62,6 +62,8 @@ const taskSchema = new mongoose.Schema(
       type: String,
       enum: [
         'Lodged/Completed',
+        'Out To Sign',
+        'Singed',
         'Waiting for review',
         'Waiting client',
         'Sent query for Manager',

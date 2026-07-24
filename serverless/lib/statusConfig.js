@@ -1,5 +1,7 @@
 const STATUS_MAP = {
   'Lodged/Completed': { label: 'Lodged/Completed', color: '#16a34a', column: 'done' },
+  'Out To Sign': { label: 'Out To Sign', color: '#2563eb', column: 'inprogress' },
+  Singed: { label: 'Singed', color: '#9333ea', column: 'done' },
   'Waiting for review': { label: 'Waiting for review', color: '#f59e0b', column: 'waiting' },
   'Waiting client': { label: 'Waiting client', color: '#f97316', column: 'waiting' },
   'Sent query for Manager': { label: 'Sent Query to Manager', color: '#7c3aed', column: 'waiting' },

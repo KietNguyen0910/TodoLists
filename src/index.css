@@ -1231,7 +1231,8 @@ h1 {
 .task-list {
   display: block;
   width: 100%;
-  overflow-x: auto;
+  max-height: 70vh;
+  overflow: auto;
 }
 
 .task-table {
@@ -1273,6 +1274,9 @@ h1 {
 }
 
 .task-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
   background: #f8fafc;
   color: #0f172a;
   font-weight: 700;
@@ -1468,11 +1472,14 @@ h1 {
 }
 
 .history-modal-card {
-  max-height: min(760px, calc(100vh - 48px));
+  height: min(760px, calc(100vh - 48px));
+  display: flex;
+  flex-direction: column;
 }
 
 .history-modal-content {
-  max-height: 60vh;
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
 }
 

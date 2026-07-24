@@ -5,6 +5,8 @@ const { autoAssignInProgressSlots } = require('../../serverless/lib/autoAssign')
 
 const VALID_STATUSES = [
   'Lodged/Completed',
+  'Out To Sign',
+  'Singed',
   'Waiting for review',
   'Waiting client',
   'Sent query for Manager',

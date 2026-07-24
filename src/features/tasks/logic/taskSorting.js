@@ -16,6 +16,8 @@ const STATUS_PRIORITY = [
   'Waiting for review',
   'Waiting client',
   'Sent query for Manager',
+  'Out To Sign',
+  'Singed',
   'Lodged/Completed',
 ];
 

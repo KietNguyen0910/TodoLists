@@ -14,6 +14,12 @@ describe('task tab filtering', () => {
     expect(getTaskTabId('On hold')).toBe('todo');
   });
 
+  it('places Out To Sign and Singed in sidebar tabs below Completed', () => {
+    expect(getTaskTabId('Out To Sign')).toBe('out-to-sign');
+    expect(getTaskTabId('Singed')).toBe('singed');
+    expect(TASK_TABS.slice(-3).map((tab) => tab.id)).toEqual(['completed', 'out-to-sign', 'singed']);
+  });
+
   it('keeps all waiting statuses in the notification set', () => {
     expect(WAITING_STATUSES).toEqual(new Set([
       'Waiting client',

@@ -90,4 +90,17 @@ describe('Excel task import', () => {
     expect(preview.tasks).toHaveLength(1);
     expect(preview.existingDuplicates).toEqual([]);
   });
+
+  it('normalizes the Out To Sign and Singed statuses', async () => {
+    const file = createExcelFile([['Weekly', [
+      headers,
+      ['Signing client', 'Send documents', '', '', '', '', 'Out To Sign', '', '', '', ''],
+      ['Signed client', 'Archive documents', '', '', '', '', 'Singed', '', '', '', ''],
+    ]]]);
+
+    const result = await parseExcelFile(file);
+
+    expect(result.invalidRows).toEqual([]);
+    expect(result.tasks.map((task) => task.status)).toEqual(['Out To Sign', 'Singed']);
+  });
 });

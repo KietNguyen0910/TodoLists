@@ -147,6 +147,8 @@ module.exports = async function handler(req, res) {
       const { title, description, software, payroll, properties, motorVehicles, outcomeAchieved, assignDate, deadline, notes, status, syncSoftwareForClient, syncClientFields } = req.body;
       const VALID_STATUSES = [
         'Lodged/Completed',
+        'Out To Sign',
+        'Singed',
         'Waiting for review',
         'Waiting client',
         'Sent query for Manager',
