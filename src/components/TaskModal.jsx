@@ -11,7 +11,7 @@ import ClientAutocomplete from '../features/clients/components/ClientAutocomplet
 
 const softwareOptions = ['MYOB', 'Quickbook', 'Xero', 'Reckon'];
 const payrollOptions = [{ value: '', label: 'N/A', color: '#64748b' }, ...softwareOptions.map((option) => ({ value: option, label: option, color: getSoftwareColor(option) }))];
-const initialForm = { title: '', description: '', outcomeAchieved: [], assignDate: '', deadline: '', notes: '', software: '', payroll: '', properties: [], motorVehicles: [], status: 'Initial Information Received' };
+const initialForm = { title: '', description: '', outcomeAchieved: [], assignDate: '', notes: '', software: '', payroll: '', properties: [], motorVehicles: [], status: 'Initial Information Received' };
 
 function getTodayInputDate() {
   const today = new Date();
@@ -151,7 +151,6 @@ export default function TaskModal({ isOpen, onClose, onSubmit, initialValues, cl
             <TagInput value={form.motorVehicles} disabled={isSubmitting} placeholder="Enter a motor vehicle and press Enter" onChange={(motorVehicles) => setForm((previous) => ({ ...previous, motorVehicles }))} />
           </div>
           <label>Assign Date<DatePickerInput name="assignDate" ariaLabel="Assign date" value={form.assignDate} onChange={(assignDate) => setForm((previous) => ({ ...previous, assignDate }))} /></label>
-          <label>Deadline<DatePickerInput name="deadline" ariaLabel="Deadline" value={form.deadline} onChange={(deadline) => setForm((previous) => ({ ...previous, deadline }))} /></label>
           <label>Note<textarea name="notes" value={form.notes} onChange={handleChange} rows="6" /></label>
           <label>Status<select name="status" value={form.status} onChange={handleChange}>{STATUS_OPTIONS.map((option) => <option key={option} value={option}>{getStatusLabel(option)}</option>)}</select></label>
           <div className="modal-actions">
