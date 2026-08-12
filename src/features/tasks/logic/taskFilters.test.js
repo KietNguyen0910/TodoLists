@@ -1,5 +1,5 @@
 import { TASK_TABS, WAITING_STATUSES } from '../../../app/tabs.config';
-import { getTaskTabId, getTasksForTab } from './taskFilters';
+import { getTaskTabId, getTasksForTab, isActiveTask } from './taskFilters';
 
 describe('task tab filtering', () => {
   it('places each waiting status in its new tab', () => {
@@ -35,6 +35,12 @@ describe('task tab filtering', () => {
       'Waiting for final Review',
       'Waiting for review',
     ]));
+  });
+
+  it('excludes both soft-delete flags from the active task list', () => {
+    expect(isActiveTask({ deleted: true })).toBe(false);
+    expect(isActiveTask({ isDeleted: true })).toBe(false);
+    expect(isActiveTask({ deleted: false, isDeleted: false })).toBe(true);
   });
 
   it('filters a tab to only its configured statuses', () => {

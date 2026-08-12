@@ -42,6 +42,7 @@ const normalizeMotorVehicles = (value) => Array.from(new Set((Array.isArray(valu
 const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const getTaskKey = ({ title, description }) => `${normalizeTaskText(title).toLowerCase()}\u0000${normalizeTaskText(description).toLowerCase()}`;
 const isDeletedTask = (task) => Boolean(task?.deleted || task?.isDeleted);
+const isActiveTask = (task) => !isDeletedTask(task);
 
 const parseCompletionDate = (value) => {
   if (!value) return { valid: true, value: null };
@@ -173,10 +174,10 @@ async function syncClientFieldsAcrossTasks(clientName, clientUpdates, actor) {
 router.get('/', async (req, res) => {
   try {
     if (!isMongoConnected()) {
-      return res.json(taskStore.getAllTasks());
+      return res.json(taskStore.getAllTasks().filter(isActiveTask));
     }
 
-    const tasks = await Task.find().sort({ createdAt: 1 });
+    const tasks = await Task.find({ deleted: { $ne: true }, isDeleted: { $ne: true } }).sort({ createdAt: 1 });
     res.json(tasks.map(serializeTask));
   } catch (error) {
     res.status(500).json({ message: 'Failed to fetch tasks', error: error.message });

@@ -135,7 +135,7 @@ module.exports = async function handler(req, res) {
     await connectDb();
 
     if (req.method === 'GET') {
-      const tasks = await Task.find().sort({ createdAt: 1 });
+      const tasks = await Task.find({ deleted: { $ne: true }, isDeleted: { $ne: true } }).sort({ createdAt: 1 });
       return res.status(200).json(tasks.map(serializeTask));
     }
 
