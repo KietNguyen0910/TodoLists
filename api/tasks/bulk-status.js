@@ -7,7 +7,7 @@ const VALID_STATUSES = [
   'Lodged/Completed',
   'Out To Sign',
   'Singed',
-  'Waiting for review',
+  'Waiting for final Review',
   'Waiting client',
   'Sent query for Manager',
   'In Progress',

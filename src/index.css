@@ -1453,12 +1453,111 @@ h1 {
   align-items: center;
 }
 
-.task-status-cell select {
+.status-picker {
+  position: relative;
   flex: 0 0 214px;
-  padding: 8px 10px;
+}
+
+.status-picker-trigger {
+  width: 100%;
+  min-height: 34px;
+  padding: 8px 10px 8px 12px;
+  border: 1px solid;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-align: left;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 12%);
+  cursor: pointer;
+}
+
+.status-picker-trigger:hover:not(:disabled) {
+  filter: brightness(0.96);
+}
+
+.status-picker-trigger:focus-visible,
+.status-picker-option:focus-visible {
+  outline: 3px solid #818cf8;
+  outline-offset: 2px;
+}
+
+.status-picker-trigger:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+
+.status-picker-chevron {
+  font-size: 1.1rem;
+  line-height: 0.7;
+}
+
+.status-picker-menu {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 6px);
+  left: 0;
+  width: 280px;
+  padding: 8px;
   border: 1px solid #cbd5e1;
-  border-radius: 10px;
-  white-space: nowrap;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 16px 28px rgb(15 23 42 / 20%);
+}
+
+.status-picker-menu.is-above {
+  top: auto;
+  bottom: calc(100% + 6px);
+}
+
+.status-picker-title {
+  margin: 5px 10px 8px;
+  color: #64748b;
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.status-picker-option {
+  width: 100%;
+  min-height: 38px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 8px;
+  display: grid;
+  grid-template-columns: 10px 1fr 16px;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  color: #1e293b;
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.status-picker-option:hover,
+.status-picker-option.is-selected {
+  background: #eef2ff;
+  color: #3730a3;
+}
+
+.status-picker-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 1px rgb(15 23 42 / 12%);
+}
+
+.status-picker-check {
+  font-size: 0.95rem;
+  font-weight: 800;
 }
 
 .task-status-cell .task-edit {

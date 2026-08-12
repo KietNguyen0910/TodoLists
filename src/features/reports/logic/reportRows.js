@@ -2,8 +2,17 @@ import { getDateTime, getInclusiveDateRange } from '../../../shared/utils/dateUt
 import { getStatusLabel } from '../../../shared/config/statusConfig';
 import { ACTION_LABELS, formatDetail, formatLogDetail, getUpdatedFields } from '../utils/reportFormatters';
 
+function isDeletedAuditLog(log) {
+  if (log.action === 'deleted') return true;
+
+  return (Array.isArray(log.changes) ? log.changes : []).some((change) => (
+    ['deleted', 'isDeleted'].includes(change.field) && Boolean(change.to ?? change.next)
+  ));
+}
+
 export function getLogsInRange(task, range) {
   return (Array.isArray(task.auditLogs) ? task.auditLogs : [])
+    .filter((log) => !isDeletedAuditLog(log))
     .filter((log) => {
       const changedAt = getDateTime(log.changedAt);
       return changedAt >= range.from && changedAt <= range.to;
@@ -16,6 +25,7 @@ export function buildActivityRows(tasks, fromDate, toDate) {
   if (!range) return [];
 
   return tasks
+    .filter((task) => !(task.deleted || task.isDeleted))
     .flatMap((task) => getLogsInRange(task, range).map((log, logIndex) => {
       const changedAt = getDateTime(log.changedAt);
 
@@ -40,6 +50,7 @@ export function buildJobRows(tasks, fromDate, toDate) {
   if (!range) return [];
 
   return tasks
+    .filter((task) => !(task.deleted || task.isDeleted))
     .map((task) => {
       const matchingLogs = getLogsInRange(task, range);
       if (!matchingLogs.length) return null;

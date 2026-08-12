@@ -4,7 +4,7 @@ import { OUTCOME_PHASES } from '../features/outcomes/config/outcomeConfig';
 import { getOutcomeProgress } from '../features/outcomes/logic/outcomeProgress';
 import OutcomeMultiSelect from '../features/outcomes/components/OutcomeMultiSelect';
 import { getSoftwareColor } from '../shared/config/softwareConfig';
-import { getStatusLabel, STATUS_OPTIONS } from '../shared/config/statusConfig';
+import { getStatusLabel, normalizeStatusValue, STATUS_OPTIONS } from '../shared/config/statusConfig';
 import { exportTask } from '../features/tasks/utils/taskExport';
 import TagInput from '../features/tasks/components/TagInput';
 import ClientAutocomplete from '../features/clients/components/ClientAutocomplete';
@@ -55,6 +55,7 @@ export default function TaskModal({ isOpen, onClose, onSubmit, initialValues, cl
     setForm(isOpen ? {
       ...(initialValues ? initialForm : createInitialForm),
       ...(initialValues || {}),
+      status: normalizeStatusValue(initialValues?.status || createInitialForm.status),
       outcomeAchieved: normalizeOutcomes(initialValues?.outcomeAchieved),
       payroll: payrollOptions.some((option) => option.value === initialValues?.payroll) ? initialValues.payroll : '',
       properties: normalizeProperties(initialValues?.properties),

@@ -5,6 +5,7 @@ describe('task tab filtering', () => {
   it('places each waiting status in its new tab', () => {
     expect(getTaskTabId('Waiting client')).toBe('waiting-information-request');
     expect(getTaskTabId('Sent query for Manager')).toBe('waiting-information-request');
+    expect(getTaskTabId('Waiting for final Review')).toBe('waiting-review');
     expect(getTaskTabId('Waiting for review')).toBe('waiting-review');
   });
 
@@ -12,18 +13,26 @@ describe('task tab filtering', () => {
     expect(getTaskTabId('Initial Information Received')).toBe('information-received');
     expect(getTaskTabId('In Progress')).toBe('todo');
     expect(getTaskTabId('On hold')).toBe('todo');
+    expect(getTaskTabId('Sent Report to client')).toBe('out-to-sign');
   });
 
-  it('places Out To Sign and Singed in sidebar tabs below Completed', () => {
+  it('uses the requested sidebar labels for Sent Report to client and Signed', () => {
     expect(getTaskTabId('Out To Sign')).toBe('out-to-sign');
     expect(getTaskTabId('Singed')).toBe('singed');
     expect(TASK_TABS.slice(-3).map((tab) => tab.id)).toEqual(['completed', 'out-to-sign', 'singed']);
+    expect(TASK_TABS.find((tab) => tab.id === 'out-to-sign')).toMatchObject({
+      label: 'Sent Report to client',
+      title: 'Sent Report to client',
+      statuses: ['Out To Sign', 'Sent Report to client'],
+    });
+    expect(TASK_TABS.find((tab) => tab.id === 'singed')).toMatchObject({ label: 'Signed', title: 'Signed' });
   });
 
   it('keeps all waiting statuses in the notification set', () => {
     expect(WAITING_STATUSES).toEqual(new Set([
       'Waiting client',
       'Sent query for Manager',
+      'Waiting for final Review',
       'Waiting for review',
     ]));
   });
@@ -33,7 +42,7 @@ describe('task tab filtering', () => {
     const tasks = [
       { _id: 'client', status: 'Waiting client' },
       { _id: 'query', status: 'Sent query for Manager' },
-      { _id: 'review', status: 'Waiting for review' },
+      { _id: 'review', status: 'Waiting for final Review' },
     ];
 
     expect(getTasksForTab(tasks, informationTab).map((task) => task._id)).toEqual(['client', 'query']);

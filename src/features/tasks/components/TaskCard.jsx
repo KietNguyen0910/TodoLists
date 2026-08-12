@@ -1,4 +1,5 @@
 import { memo, useCallback } from 'react';
+import StatusPicker from './StatusPicker';
 import { getOutcomeProgress } from '../../outcomes/logic/outcomeProgress';
 import { getSoftwareColor } from '../../../shared/config/softwareConfig';
 import { isInteractiveElement } from '../../../shared/utils/domUtils';
@@ -42,18 +43,6 @@ const TaskCard = memo(function TaskCard({
     if (isInteractiveElement(event.target)) return;
     handleProtectedAction('edit tasks', () => onEdit(task));
   };
-  const handleStatusMouseDown = (event) => {
-    if (!isReadOnly) return;
-
-    event.preventDefault();
-    onRequireLogin?.('change task status');
-  };
-  const handleStatusKeyDown = (event) => {
-    if (!isReadOnly || !['Enter', ' '].includes(event.key)) return;
-
-    event.preventDefault();
-    onRequireLogin?.('change task status');
-  };
   const handleSelectionChange = (event) => {
     const inputEvent = event.nativeEvent || event;
     onSelect?.(task._id, {
@@ -89,27 +78,7 @@ const TaskCard = memo(function TaskCard({
       {showCompletionTime && <td className="completion-time-cell">{formatDateTime(task.completionDate)}</td>}
       <td className="task-status-column">
         <div className="task-status-cell">
-          <select
-            className="font-semibold status-tag"
-            value={task.status}
-            aria-label={`Status for ${task.title || 'task'}`}
-            aria-disabled={isReadOnly}
-            disabled={isStatusUpdating}
-            onMouseDown={handleStatusMouseDown}
-            onKeyDown={handleStatusKeyDown}
-            onChange={(event) => handleProtectedAction('change task status', () => onStatusChange(task._id, event.target.value))}
-            style={{
-              background: statusConfig.color,
-              borderColor: task.status === 'Lodged/Completed' ? '#f0f0f0' : statusConfig.color,
-              color: task.status === 'Lodged/Completed' ? '#000' : '#fff',
-            }}
-          >
-            {Object.entries(statusMap).map(([statusKey, config]) => (
-              <option key={statusKey} value={statusKey} style={{ background: '#fff', color: '#0f172a' }}>
-                {config.label}
-              </option>
-            ))}
-          </select>
+          <StatusPicker task={task} statusMap={statusMap} onChange={onStatusChange} onRequireLogin={onRequireLogin} isReadOnly={isReadOnly} isUpdating={isStatusUpdating} />
           <div className="task-edit">
             <button className="delete-button" type="button" aria-label={`View history for ${task.title || 'task'}`} onClick={() => onViewHistory(task)}>&#128065;</button>
             <button className="delete-button" type="button" aria-disabled={isReadOnly} aria-label={`Edit ${task.title || 'task'}`} onClick={() => handleProtectedAction('edit tasks', () => onEdit(task))}>&#9998;</button>

@@ -13,6 +13,7 @@ const STATUS_PRIORITY = [
   'Initial Information Received',
   'Sent Report to client',
   'On hold',
+  'Waiting for final Review',
   'Waiting for review',
   'Waiting client',
   'Sent query for Manager',

@@ -4,7 +4,11 @@ let XLSX;
 
 const TEMPLATE_URL = `${process.env.PUBLIC_URL || ''}/templates/daily-outcome-updates-template.xlsx`;
 const TEMPLATE_SHEET_PATH = 'xl/worksheets/sheet5.xml';
-const START_ROW = 20;
+const TEMPLATE_START_ROW = 20;
+const REMOVED_ROW_START = 10;
+const REMOVED_ROW_END = 14;
+const REMOVED_ROW_COUNT = REMOVED_ROW_END - REMOVED_ROW_START + 1;
+const START_ROW = TEMPLATE_START_ROW - REMOVED_ROW_COUNT;
 const HEADER_ROW = START_ROW - 1;
 const SHEET_NAMESPACE = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
 const RELATIONSHIP_NAMESPACE = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
@@ -143,7 +147,7 @@ function getCellStyle(sheetXml, column) {
   let match;
 
   while ((match = cellPattern.exec(sheetXml))) {
-    if (Number(match[1]) < START_ROW) continue;
+    if (Number(match[1]) < TEMPLATE_START_ROW) continue;
     const style = match[2].match(/\bs="(\d+)"/)?.[1] || '1';
     if (style !== '1') fallbackStyle = style;
     if (match[3]?.match(/<(?:v|is)\b/)) return style;
@@ -193,25 +197,63 @@ function buildDataRow(rowNumber, row, styles) {
   ].join('')}</row>`;
 }
 
-function updateWorksheet(sheetXml, rows) {
+function getExportRowNumber(rowNumber) {
+  return rowNumber > REMOVED_ROW_END ? rowNumber - REMOVED_ROW_COUNT : rowNumber;
+}
+
+function shiftRowReferences(rowXml) {
+  return rowXml.replace(/\br="([A-Z]+)?(\d+)"/g, (match, column, rowNumber) => (
+    `r="${column || ''}${getExportRowNumber(Number(rowNumber))}"`
+  ));
+}
+
+function getHeaderRows(sheetData) {
+  return Array.from(sheetData.matchAll(/<row\b[^>]*\br="(\d+)"[\s\S]*?<\/row>/g))
+    .filter((match) => {
+      const rowNumber = Number(match[1]);
+      return rowNumber < TEMPLATE_START_ROW && (rowNumber < REMOVED_ROW_START || rowNumber > REMOVED_ROW_END);
+    })
+    .map((match) => shiftRowReferences(match[0]))
+    .join('');
+}
+
+function updateMergedCells(sheetXml) {
+  return sheetXml.replace(/<mergeCell ref="([A-Z]+)(\d+):([A-Z]+)(\d+)"\/>/g, (match, startColumn, startRow, endColumn, endRow) => {
+    const startRowNumber = Number(startRow);
+    const endRowNumber = Number(endRow);
+    if (startRowNumber >= REMOVED_ROW_START && endRowNumber <= REMOVED_ROW_END) return '';
+    return `<mergeCell ref="${startColumn}${getExportRowNumber(startRowNumber)}:${endColumn}${getExportRowNumber(endRowNumber)}"/>`;
+  });
+}
+
+function updateExportDate(sheetXml, exportDate) {
+  const serial = toExcelSerial(exportDate);
+  if (serial === null) throw new Error('Export date is invalid.');
+
+  const updatedSheetXml = sheetXml.replace(/<c r="B5"([^>]*)>[\s\S]*?<\/c>/, `<c r="B5"$1><v>${serial}</v></c>`);
+  if (updatedSheetXml === sheetXml) throw new Error('Template worksheet is missing the export date cell.');
+  return updatedSheetXml;
+}
+
+export function updateDailyOutcomeWorksheet(sheetXml, rows, exportDate = new Date()) {
   const styles = getColumnStyles(sheetXml);
   const dataRows = rows.map((row, index) => buildDataRow(START_ROW + index, row, styles)).join('');
   const existingData = sheetXml.match(/<sheetData>([\s\S]*?)<\/sheetData>/);
   if (!existingData) throw new Error('Template worksheet does not contain data rows.');
 
-  const headerRows = Array.from(existingData[1].matchAll(/<row\b[^>]*\br="(\d+)"[\s\S]*?<\/row>/g))
-    .filter((match) => Number(match[1]) < START_ROW)
-    .map((match) => match[0])
-    .join('');
+  const headerRows = getHeaderRows(existingData[1]);
   const lastRow = HEADER_ROW + rows.length;
   const updatedData = `<sheetData>${headerRows}${dataRows}</sheetData>`;
 
+  const updatedWorksheet = updateMergedCells(sheetXml)
+    .replace(/<sheetData>[\s\S]*?<\/sheetData>/, updatedData)
+    .replace(/<dimension\s+ref="[^"]*"\s*\/>/, `<dimension ref="A1:K${lastRow}"/>`)
+    .replace(/<autoFilter\b[\s\S]*?<\/autoFilter>|<autoFilter\b[^>]*\/>/, `<autoFilter ref="A${HEADER_ROW}:K${lastRow}"/>`)
+    .replace(/<selection\b[^>]*\/>/, `<selection activeCell="A${START_ROW}" sqref="A${START_ROW}"/>`);
+
   return {
     lastRow,
-    xml: sheetXml
-      .replace(/<sheetData>[\s\S]*?<\/sheetData>/, updatedData)
-      .replace(/<dimension\s+ref="[^"]*"\s*\/>/, `<dimension ref="A1:K${lastRow}"/>`)
-      .replace(/<autoFilter\b[\s\S]*?<\/autoFilter>|<autoFilter\b[^>]*\/>/, `<autoFilter ref="A${HEADER_ROW}:K${lastRow}"/>`),
+    xml: updateExportDate(updatedWorksheet, exportDate),
   };
 }
 
@@ -296,17 +338,18 @@ function downloadWorkbook(bytes, filename) {
 
 export async function exportDailyOutcomeTasks(tasks, tabTitle, { filename, allowEmpty = false } = {}) {
   if (!tasks.length && !allowEmpty) return null;
+  const exportDate = new Date();
   XLSX = XLSX || await import('xlsx');
   const response = await fetch(TEMPLATE_URL);
   if (!response.ok) throw new Error('Unable to load the Daily Outcome Updates template.');
 
   const cfb = XLSX.CFB.read(new Uint8Array(await response.arrayBuffer()), { type: 'array' });
   const rows = buildDailyOutcomeRows(tasks);
-  const worksheet = updateWorksheet(getTextContent(cfb, TEMPLATE_SHEET_PATH), rows);
+  const worksheet = updateDailyOutcomeWorksheet(getTextContent(cfb, TEMPLATE_SHEET_PATH), rows, exportDate);
   setTextContent(cfb, TEMPLATE_SHEET_PATH, worksheet.xml);
   keepOnlyTemplateSheet(cfb, worksheet.lastRow);
 
-  const exportFilename = filename || getDailyOutcomeFilename(tabTitle);
+  const exportFilename = filename || getDailyOutcomeFilename(tabTitle, exportDate);
   downloadWorkbook(XLSX.CFB.write(cfb, { type: 'array', fileType: 'zip', compression: true }), exportFilename);
   return exportFilename;
 }

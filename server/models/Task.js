@@ -64,6 +64,7 @@ const taskSchema = new mongoose.Schema(
         'Lodged/Completed',
         'Out To Sign',
         'Singed',
+        'Waiting for final Review',
         'Waiting for review',
         'Waiting client',
         'Sent query for Manager',

@@ -14,8 +14,14 @@ export const STATUS_MAP = {
     color: '#9333ea',
     column: 'done',
   },
+  'Waiting for final Review': {
+    label: 'Waiting for final Review',
+    color: '#f59e0b',
+    column: 'waiting',
+  },
+  // Legacy value retained only so existing tasks display correctly until edited.
   'Waiting for review': {
-    label: 'Waiting for review',
+    label: 'Waiting for final Review',
     color: '#f59e0b',
     column: 'waiting',
   },
@@ -51,7 +57,11 @@ export const STATUS_MAP = {
   },
 };
 
-export const STATUS_OPTIONS = Object.keys(STATUS_MAP);
+export const STATUS_OPTIONS = Object.keys(STATUS_MAP).filter((status) => status !== 'Waiting for review');
+
+export function normalizeStatusValue(status) {
+  return status === 'Waiting for review' ? 'Waiting for final Review' : status;
+}
 
 export function getStatusLabel(status) {
   return STATUS_MAP[status]?.label || status || '_';
