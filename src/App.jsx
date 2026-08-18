@@ -470,7 +470,7 @@ export default function App() {
         <section className="content">
           {error && <p className="error" role="alert">{error}</p>}
           {isReportTab ? (
-            loading ? <p className="empty">Loading tasks...</p> : <Suspense fallback={<p className="empty">Loading report...</p>}><ReportView tasks={tasks} /></Suspense>
+            loading ? <p className="empty">Loading tasks...</p> : <Suspense fallback={<p className="empty">Loading report...</p>}><ReportView tasks={tasks} onShowToast={showToast} /></Suspense>
           ) : isClientTab ? (
             loading ? <p className="empty">Loading clients...</p> : <Suspense fallback={<p className="empty">Loading clients...</p>}><ClientView tasks={tasks} onEdit={setEditingClient} onRequireLogin={requireLogin} isReadOnly={!isAuthenticated} /></Suspense>
           ) : (

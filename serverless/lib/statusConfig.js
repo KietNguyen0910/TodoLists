@@ -2,14 +2,14 @@ const STATUS_MAP = {
   'Lodged/Completed': { label: 'Lodged/Completed', color: '#16a34a', column: 'done' },
   'Out To Sign': { label: 'Out To Sign', color: '#2563eb', column: 'inprogress' },
   Singed: { label: 'Singed', color: '#9333ea', column: 'done' },
-  'Waiting for final Review': { label: 'Waiting for final Review', color: '#f59e0b', column: 'waiting' },
-  'Waiting for review': { label: 'Waiting for final Review', color: '#f59e0b', column: 'waiting' },
+  'Waiting for final Review': { label: 'Waiting for Final Review', color: '#f59e0b', column: 'waiting' },
+  'Waiting for review': { label: 'Waiting for Final Review', color: '#f59e0b', column: 'waiting' },
   'Waiting client': { label: 'Waiting client', color: '#f97316', column: 'waiting' },
   'Sent query for Manager': { label: 'Sent Query to Manager', color: '#7c3aed', column: 'waiting' },
   'In Progress': { label: 'In Progress', color: '#2563eb', column: 'inprogress' },
   'Initial Information Received': { label: 'Initial Information Received', color: '#06b6d4', column: 'inprogress' },
   'On hold': { label: 'On hold', color: '#ef4444', column: 'waiting' },
-  'Sent Report to client': { label: 'Sent Report to client', color: '#0f766e', column: 'inprogress' },
+  'Sent Report to client': { label: 'Sent Report to Client', color: '#0f766e', column: 'inprogress' },
 };
 
 const STATUS_OPTIONS = Object.keys(STATUS_MAP);

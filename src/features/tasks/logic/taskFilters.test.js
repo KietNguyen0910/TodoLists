@@ -16,13 +16,13 @@ describe('task tab filtering', () => {
     expect(getTaskTabId('Sent Report to client')).toBe('out-to-sign');
   });
 
-  it('uses the requested sidebar labels for Sent Report to client and Signed', () => {
+  it('uses the requested sidebar labels for Sent Report to Client and Signed', () => {
     expect(getTaskTabId('Out To Sign')).toBe('out-to-sign');
     expect(getTaskTabId('Singed')).toBe('singed');
     expect(TASK_TABS.slice(-3).map((tab) => tab.id)).toEqual(['completed', 'out-to-sign', 'singed']);
     expect(TASK_TABS.find((tab) => tab.id === 'out-to-sign')).toMatchObject({
-      label: 'Sent Report to client',
-      title: 'Sent Report to client',
+      label: 'Sent Report to Client',
+      title: 'Sent Report to Client',
       statuses: ['Out To Sign', 'Sent Report to client'],
     });
     expect(TASK_TABS.find((tab) => tab.id === 'singed')).toMatchObject({ label: 'Signed', title: 'Signed' });

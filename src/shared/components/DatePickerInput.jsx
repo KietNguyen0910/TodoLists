@@ -51,7 +51,7 @@ function isSameDay(first, second) {
     && first.getDate() === second.getDate();
 }
 
-export default function DatePickerInput({ value, onChange, placeholder = 'dd/mm/yyyy', name, ariaLabel }) {
+export default function DatePickerInput({ value, onChange, placeholder = 'dd/mm/yyyy', name, ariaLabel, openSignal = 0, viewDateOnOpen }) {
   const [isOpen, setIsOpen] = useState(false);
   const [viewDate, setViewDate] = useState(() => parseInputDate(value) || new Date());
   const [inputValue, setInputValue] = useState(() => {
@@ -59,6 +59,7 @@ export default function DatePickerInput({ value, onChange, placeholder = 'dd/mm/
     return date ? DISPLAY_FORMATTER.format(date) : '';
   });
   const wrapperRef = useRef(null);
+  const lastOpenSignalRef = useRef(openSignal);
   const selectedDate = parseInputDate(value);
   const today = new Date();
 
@@ -66,6 +67,14 @@ export default function DatePickerInput({ value, onChange, placeholder = 'dd/mm/
     const date = parseInputDate(value);
     setInputValue(date ? DISPLAY_FORMATTER.format(date) : '');
   }, [value]);
+
+  useEffect(() => {
+    if (!openSignal || openSignal === lastOpenSignalRef.current) return;
+
+    lastOpenSignalRef.current = openSignal;
+    setViewDate(parseInputDate(viewDateOnOpen) || selectedDate || new Date());
+    setIsOpen(true);
+  }, [openSignal, selectedDate, viewDateOnOpen]);
 
   useEffect(() => {
     const handlePointerDown = (event) => {

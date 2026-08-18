@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import DatePickerInput from '../shared/components/DatePickerInput';
 import ClientSearch from '../features/reports/components/ClientSearch';
+import { getDateRangeAfterFromDateChange } from '../features/reports/logic/dateRangeSelection';
+import { MONTH_NAMES, exportMonthlyOutcomeTasks } from '../features/reports/logic/monthlyOutcomeExport';
 import { exportReportRows } from '../features/reports/logic/reportExport';
 import { buildActivityRows, buildJobRows, buildSearchRows, filterRowsByClient } from '../features/reports/logic/reportRows';
 import { formatDateTime, getInclusiveDateRange, getReportDatePresetRange } from '../shared/utils/dateUtils';
@@ -103,12 +105,75 @@ function DateRangeSelect({ value, fromDate, toDate, onChange }) {
   );
 }
 
-export default function ReportView({ tasks }) {
+function MonthlyOutcomeUpdate({ onSelectMonth }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const wrapperRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (!wrapperRef.current?.contains(event.target)) setIsOpen(false);
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const selectMonth = async (monthIndex) => {
+    if (isExporting) return;
+    setIsOpen(false);
+    setIsExporting(true);
+    try {
+      await onSelectMonth(monthIndex);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  return (
+    <div className="monthly-outcome-update" ref={wrapperRef}>
+      <button
+        className="button-primary monthly-outcome-trigger"
+        type="button"
+        aria-haspopup="listbox"
+        aria-controls="monthly-outcome-months"
+        aria-expanded={isOpen}
+        disabled={isExporting}
+        onClick={() => setIsOpen((current) => !current)}
+        onKeyDown={(event) => {
+          if (event.key === 'Escape') setIsOpen(false);
+        }}
+      >
+        {isExporting ? 'Preparing Excel...' : 'Monthly Outcome Update'}
+        <span className="-mt-3" aria-hidden="true">⌄</span>
+      </button>
+      {isOpen && (
+        <div id="monthly-outcome-months" className="monthly-outcome-menu" role="listbox" aria-label="Select report month">
+          {MONTH_NAMES.map((monthName, monthIndex) => (
+            <button
+              key={monthName}
+              className="monthly-outcome-option"
+              type="button"
+              role="option"
+              onClick={() => selectMonth(monthIndex)}
+            >
+              Tháng {monthIndex + 1}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function ReportView({ tasks, onShowToast }) {
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const [dateRangePreset, setDateRangePreset] = useState('custom');
   const [reportType, setReportType] = useState('activities');
   const [clientSearch, setClientSearch] = useState('');
+  const [monthlyExportError, setMonthlyExportError] = useState('');
+  const [toDateOpenSignal, setToDateOpenSignal] = useState(0);
   const hasValidRange = Boolean(getInclusiveDateRange(fromDate, toDate));
   const hasDateInput = Boolean(fromDate || toDate);
   const hasSearch = Boolean(clientSearch.trim());
@@ -141,8 +206,32 @@ export default function ReportView({ tasks }) {
     setDate(typeof eventOrDate === 'string' ? eventOrDate : eventOrDate.target.value);
   };
 
+  const handleFromDateChange = (eventOrDate) => {
+    const nextFromDate = typeof eventOrDate === 'string' ? eventOrDate : eventOrDate.target.value;
+    const nextRange = getDateRangeAfterFromDateChange(nextFromDate, toDate);
+    setDateRangePreset('custom');
+    setFromDate(nextRange.fromDate);
+    setToDate(nextRange.toDate);
+    if (nextRange.shouldOpenToDate) setToDateOpenSignal((current) => current + 1);
+  };
+
+  const handleMonthlyOutcomeExport = async (monthIndex) => {
+    setMonthlyExportError('');
+    try {
+      const result = await exportMonthlyOutcomeTasks(tasks, new Date().getFullYear(), monthIndex);
+      onShowToast?.(`Monthly Outcome Update downloaded successfully (${result.taskCount} task${result.taskCount === 1 ? '' : 's'}).`);
+    } catch (exportError) {
+      console.error('Monthly Outcome Update export error:', exportError);
+      setMonthlyExportError('Unable to download the Monthly Outcome Update file. Please try again.');
+    }
+  };
+
   return (
     <div className="report-view">
+      <div className="report-monthly-outcome-action">
+        <MonthlyOutcomeUpdate onSelectMonth={handleMonthlyOutcomeExport} />
+      </div>
+      {monthlyExportError && <p className="error" role="alert">{monthlyExportError}</p>}
       <div className="report-filters">
         <label>Layout
           <select value={reportType} onChange={(event) => setReportType(event.target.value)}>
@@ -153,8 +242,8 @@ export default function ReportView({ tasks }) {
         <label>Search Client
           <ClientSearch tasks={tasks} value={clientSearch} onChange={setClientSearch} />
         </label>
-        <label>From date<DatePickerInput ariaLabel="From date" value={fromDate} onChange={handleManualDateChange(setFromDate)} /></label>
-        <label>To date<DatePickerInput ariaLabel="To date" value={toDate} onChange={handleManualDateChange(setToDate)} /></label>
+        <label>From date<DatePickerInput ariaLabel="From date" value={fromDate} onChange={handleFromDateChange} /></label>
+        <label>To date<DatePickerInput ariaLabel="To date" value={toDate} onChange={handleManualDateChange(setToDate)} openSignal={toDateOpenSignal} viewDateOnOpen={fromDate} /></label>
         <div className="report-filter date-range-filter">
           <span className="report-filter-label">Date range</span>
           <DateRangeSelect value={dateRangePreset} fromDate={fromDate} toDate={toDate} onChange={handleDateRangePresetChange} />

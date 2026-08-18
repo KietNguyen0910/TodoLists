@@ -14,14 +14,15 @@ export const STATUS_MAP = {
     color: '#9333ea',
     column: 'done',
   },
+  // Keep the persisted status value stable; the label is the presentation text.
   'Waiting for final Review': {
-    label: 'Waiting for final Review',
+    label: 'Waiting for Final Review',
     color: '#f59e0b',
     column: 'waiting',
   },
   // Legacy value retained only so existing tasks display correctly until edited.
   'Waiting for review': {
-    label: 'Waiting for final Review',
+    label: 'Waiting for Final Review',
     color: '#f59e0b',
     column: 'waiting',
   },
@@ -51,7 +52,7 @@ export const STATUS_MAP = {
     column: 'waiting',
   },
   'Sent Report to client': {
-    label: 'Sent Report to client',
+    label: 'Sent Report to Client',
     color: '#0f766e',
     column: 'inprogress',
   },

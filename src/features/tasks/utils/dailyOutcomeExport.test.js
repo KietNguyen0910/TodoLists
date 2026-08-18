@@ -7,7 +7,7 @@ describe('Daily Outcome Updates export filename', () => {
     ['Information Received', 'Information Received - 22.07.26 - Cassie.xlsx'],
     ['In Progress', 'In Progress - 22.07.26 - Cassie.xlsx'],
     ['Waiting Information Request', 'Waiting Information Request - 22.07.26 - Cassie.xlsx'],
-    ['Waiting for final Review', 'Waiting for final Review - 22.07.26 - Cassie.xlsx'],
+    ['Waiting for Final Review', 'Waiting for Final Review - 22.07.26 - Cassie.xlsx'],
     ['Completed Tasks', 'Completed Tasks - 22.07.26 - Cassie.xlsx'],
   ])('uses the tab title and date for %s', (tabTitle, expectedFilename) => {
     expect(getDailyOutcomeFilename(tabTitle, exportDate)).toBe(expectedFilename);
