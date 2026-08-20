@@ -18,7 +18,7 @@ import { getSearchableTasks, getTaskCountForTab, getTasksForTab, isActiveTask } 
 import { getDailyBackupDate, getDailyBackupFilename, hasDailyBackup, markDailyBackup } from './features/tasks/utils/dailyBackup';
 import { getEmptyTaskTableColumnClasses } from './features/tasks/logic/taskTableLayout';
 import { getTaskRangeIds } from './features/tasks/logic/taskSelection';
-import { getDefaultTaskSortMode, sortTasksForTab, TASK_SORT_MODES } from './features/tasks/logic/taskSorting';
+import { getDefaultTaskSortMode, getNextAssignDateSortMode, sortTasksForTab, TASK_SORT_MODES } from './features/tasks/logic/taskSorting';
 import { useTasks } from './features/tasks/hooks/useTasks';
 import { TASKS_QUERY_KEY } from './features/tasks/hooks/useTasks';
 import { useTaskNavigation, useTaskTab } from './features/tasks/hooks/useTaskNavigation';
@@ -101,6 +101,8 @@ export default function App() {
   const activeTab = isReportTab ? REPORT_TAB : isClientTab ? CLIENT_TAB : TABS.find((tab) => tab.id === activeTabId) || TABS[0];
   const showCompletionTime = activeTab.id === 'completed';
   const activeTaskSortMode = taskSortMode || getDefaultTaskSortMode(activeTab.id);
+  const isAssignDateSortedAscending = activeTaskSortMode === TASK_SORT_MODES.DATE_ASC;
+  const isAssignDateSortedDescending = activeTaskSortMode === TASK_SORT_MODES.DATE_DESC;
   const visibleTasks = useMemo(() => (isSpecialTab ? [] : sortTasksForTab(
     getTasksForTab(tasks, activeTab),
     activeTab.id,
@@ -418,6 +420,17 @@ export default function App() {
     setIsModalOpen(true);
   }, [requireLogin]);
 
+  const addHistoryTitleToNote = useCallback((task, historyTitle) => {
+    if (!requireLogin('edit tasks')) return;
+
+    setHistoryTask(null);
+    setEditingTask({
+      ...task,
+      notes: [task.notes?.trim(), historyTitle].filter(Boolean).join('\n'),
+    });
+    setIsModalOpen(true);
+  }, [requireLogin]);
+
   const confirmDelete = async () => {
     if (!taskToDelete) return;
     if (!requireLogin('delete tasks')) {
@@ -486,6 +499,7 @@ export default function App() {
                 <label>Sort by
                   <select value={activeTaskSortMode} onChange={(event) => setTaskSortMode(event.target.value)}>
                     <option value={TASK_SORT_MODES.STATUS}>{activeTab.id === 'todo' ? 'Status (In Progress first)' : 'Status (grouped)'}</option>
+                    {activeTab.id === 'out-to-sign' && <option value={TASK_SORT_MODES.SENT_REPORT_DATE_DESC}>Sent Report to Client: Newest first</option>}
                     <option value={TASK_SORT_MODES.DATE_DESC}>{showCompletionTime ? 'Completion date: Newest first' : 'Assign date: Newest first'}</option>
                     <option value={TASK_SORT_MODES.DATE_ASC}>{showCompletionTime ? 'Completion date: Oldest first' : 'Assign date: Oldest first'}</option>
                     <option value={TASK_SORT_MODES.CLIENT}>Client name (A-Z)</option>
@@ -493,7 +507,7 @@ export default function App() {
                   </select>
                 </label>
               </div>
-              {loading ? <TaskTableSkeleton showCompletionTime={showCompletionTime} /> : <div className="task-list">{visibleTasks.length === 0 ? <p className="empty">No tasks found.</p> : <table className={`task-table ${showCompletionTime ? 'has-completion-time' : ''} ${emptyTaskTableColumnClasses}`}><thead><tr><th className="task-select-column"><input ref={selectAllCheckboxRef} type="checkbox" checked={isAllVisibleSelected} onChange={toggleAllTaskSelection} aria-label={`Select all tasks in ${activeTab.title}`} /></th><th>No</th><th>Assign Date</th><th>Software</th><th>Client</th><th>Task</th><th className="payroll-column">Payroll</th><th>Property</th><th>Motor Vehicle</th><th className="outcome-column">Outcome Achieved</th><th className="note-column">Note</th>{showCompletionTime && <th>Completion Date</th>}<th className="task-status-column">Status</th></tr></thead><tbody>{visibleTasks.map((task, index) => <TaskCard key={task._id} taskRefs={taskRefs} index={index + 1} task={task} isSelected={selectedTaskIdSet.has(task._id)} onSelect={toggleTaskSelection} statusMap={STATUS_MAP} onStatusChange={handleStatusChange} onDelete={requestSingleTaskDelete} onEdit={openTaskForEdit} onViewHistory={setHistoryTask} onRequireLogin={requireLogin} showCompletionTime={showCompletionTime} hideEmptyOutcomeProgress={activeTab.id === 'completed'} isStatusUpdating={isBulkStatusUpdating || updatingStatusTaskId === task._id} isHighlighted={highlightedTaskId === task._id} isReadOnly={!isAuthenticated} useNeutralRowBackground={activeTab.id === 'information-received' || (activeTab.id === 'todo' && task.status === 'On hold')} />)}</tbody></table>}</div>}
+              {loading ? <TaskTableSkeleton showCompletionTime={showCompletionTime} /> : <div className="task-list">{visibleTasks.length === 0 ? <p className="empty">No tasks found.</p> : <table className={`task-table ${showCompletionTime ? 'has-completion-time' : ''} ${emptyTaskTableColumnClasses}`}><thead><tr><th className="task-select-column"><input ref={selectAllCheckboxRef} type="checkbox" checked={isAllVisibleSelected} onChange={toggleAllTaskSelection} aria-label={`Select all tasks in ${activeTab.title}`} /></th><th>No</th><th aria-sort={isAssignDateSortedAscending ? 'ascending' : isAssignDateSortedDescending ? 'descending' : 'none'}><span className="task-table-sort-header">Assign Date<button className="task-table-sort-button" type="button" onClick={() => setTaskSortMode(getNextAssignDateSortMode(activeTaskSortMode))} aria-label={`Sort Assign Date ${isAssignDateSortedAscending ? 'newest first' : 'oldest first'}`} title={`Sort Assign Date ${isAssignDateSortedAscending ? 'newest first' : 'oldest first'}`}><span aria-hidden="true">{isAssignDateSortedAscending ? '↑' : isAssignDateSortedDescending ? '↓' : '↕'}</span></button></span></th><th>Software</th><th>Client</th><th>Task</th><th className="payroll-column">Payroll</th><th>Property</th><th>Motor Vehicle</th><th className="outcome-column">Outcome Achieved</th><th className="note-column">Note</th>{showCompletionTime && <th>Completion Date</th>}<th className="task-status-column">Status</th></tr></thead><tbody>{visibleTasks.map((task, index) => <TaskCard key={task._id} taskRefs={taskRefs} index={index + 1} task={task} isSelected={selectedTaskIdSet.has(task._id)} onSelect={toggleTaskSelection} statusMap={STATUS_MAP} onStatusChange={handleStatusChange} onDelete={requestSingleTaskDelete} onEdit={openTaskForEdit} onViewHistory={setHistoryTask} onRequireLogin={requireLogin} showCompletionTime={showCompletionTime} hideEmptyOutcomeProgress={activeTab.id === 'completed'} isStatusUpdating={isBulkStatusUpdating || updatingStatusTaskId === task._id} isHighlighted={highlightedTaskId === task._id} isReadOnly={!isAuthenticated} useNeutralRowBackground={activeTab.id === 'information-received' || (activeTab.id === 'todo' && task.status === 'On hold')} />)}</tbody></table>}</div>}
               {!loading && (
                 <div className="task-table-export-actions">
                   <button className="button-primary" type="button" disabled={visibleTasks.length === 0 || isExportingTasks} onClick={handleTaskTableExport}>
@@ -509,7 +523,7 @@ export default function App() {
       <ClientModal isOpen={Boolean(editingClient)} client={editingClient} onClose={closeClientModal} onSubmit={handleClientSubmit} isSubmitting={isSubmittingClient} />
       {isImportDialogOpen && <Suspense fallback={null}><ImportTasksModal isOpen preview={importPreview} onClose={closeImportDialog} onConfirm={confirmImport} onFileSelected={handleImportFileSelection} onDownloadTemplate={handleDownloadImportTemplate} isImporting={isImporting} /></Suspense>}
       <LoginModal isOpen={isLoginModalOpen} onClose={() => setIsLoginModalOpen(false)} onSubmit={handleLogin} isSubmitting={isLoggingIn} error={loginError} />
-      <TaskHistoryModal isOpen={Boolean(historyTask)} task={historyTask} onClose={() => setHistoryTask(null)} />
+      <TaskHistoryModal isOpen={Boolean(historyTask)} task={historyTask} onClose={() => setHistoryTask(null)} onAddToNote={addHistoryTitleToNote} />
       <DeleteConfirmModal isOpen={Boolean(taskToDelete)} taskTitle={taskToDelete?.title} taskCount={taskToDelete?.ids?.length || 1} onConfirm={confirmDelete} onCancel={() => setTaskToDelete(null)} isDeleting={isDeletingTask} />
       <SoftwareSyncConfirmModal isOpen={Boolean(pendingSoftwareSync)} clientName={pendingSoftwareSync?.clientName || ''} fields={(pendingSoftwareSync?.fields || []).map((field) => CLIENT_SYNC_LABELS[field])} taskCount={pendingSoftwareSync?.taskCount || 0} onConfirm={confirmSoftwareSync} onCancel={() => setPendingSoftwareSync(null)} isSubmitting={isSubmittingTask || isSubmittingClient} />
       {updatingStatusTaskId && (

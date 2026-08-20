@@ -6,6 +6,7 @@ export const TASK_SORT_MODES = {
   DATE_ASC: 'date-asc',
   CLIENT: 'client',
   TASK: 'task',
+  SENT_REPORT_DATE_DESC: 'sent-report-date-desc',
 };
 
 const STATUS_PRIORITY = [
@@ -34,6 +35,12 @@ function getCompletionDateTime(task) {
   return Math.max(getDateTime(task.completionDate), completionHistoryDate);
 }
 
+function getSentReportDateTime(task) {
+  return (Array.isArray(task.statusHistory) ? task.statusHistory : [])
+    .filter((entry) => entry.status === 'Sent Report to client')
+    .reduce((latest, entry) => Math.max(latest, getDateTime(entry.changedAt)), 0);
+}
+
 function getTaskDateTime(task, tabId) {
   return tabId === 'completed'
     ? getCompletionDateTime(task)
@@ -47,15 +54,26 @@ function isAutoAssignedInProgress(task) {
 }
 
 export function getDefaultTaskSortMode(tabId) {
+  if (tabId === 'out-to-sign') return TASK_SORT_MODES.SENT_REPORT_DATE_DESC;
   return tabId === 'completed' ? TASK_SORT_MODES.DATE_DESC : TASK_SORT_MODES.STATUS;
+}
+
+export function getNextAssignDateSortMode(currentSortMode) {
+  return currentSortMode === TASK_SORT_MODES.DATE_ASC
+    ? TASK_SORT_MODES.DATE_DESC
+    : TASK_SORT_MODES.DATE_ASC;
 }
 
 export function sortTasksForTab(tasks, tabId, sortMode = getDefaultTaskSortMode(tabId)) {
   return [...tasks].sort((first, second) => {
     const firstDate = getTaskDateTime(first, tabId);
     const secondDate = getTaskDateTime(second, tabId);
+    const firstSentReportDate = getSentReportDateTime(first);
+    const secondSentReportDate = getSentReportDateTime(second);
 
     switch (sortMode) {
+      case TASK_SORT_MODES.SENT_REPORT_DATE_DESC:
+        return secondSentReportDate - firstSentReportDate || firstDate - secondDate;
       case TASK_SORT_MODES.DATE_ASC:
         return firstDate - secondDate;
       case TASK_SORT_MODES.DATE_DESC:

@@ -128,12 +128,16 @@ export default function TaskModal({ isOpen, onClose, onSubmit, initialValues, cl
         </div>
         <form className="modal-form" onSubmit={handleSubmit}>
           <label>Client{mode === 'create' ? <ClientAutocomplete clientProfiles={clientProfiles} disabled={isSubmitting} value={form.title} onChange={(value) => handleChange({ target: { name: 'title', value } })} onSelect={selectClient} /> : <input name="title" value={form.title} onChange={handleChange} required />}</label>
+
           <label>Task<textarea name="description" value={form.description} onChange={handleChange} rows="3" /></label>
           <label>Outcome Achieved<OutcomeMultiSelect options={OUTCOME_PHASES} value={form.outcomeAchieved} progressLabel={outcomeProgress.label} onChange={(outcomes) => setForm((previous) => ({ ...previous, outcomeAchieved: outcomes }))} /></label>
-          <label>Select Software<select name="software" value={form.software} onChange={handleChange} style={{ color: form.software ? getSoftwareColor(form.software) : undefined }}><option value="">Select software</option>{softwareOptions.map((option) => <option className='font-semibold' key={option} value={option} style={{ color: getSoftwareColor(option) }}>{option}</option>)}</select>{mode === 'create' && clientSoftwareByName.get(form.title.trim().toLocaleLowerCase())?.size > 1 && <small className="field-hint">Multiple software values found. Choose one to standardise this client.</small>}</label>
-          <label>Payroll<select name="payroll" value={form.payroll} disabled={isSubmitting} onChange={handlePayrollChange} style={{ color: payrollOptions.find((option) => option.value === form.payroll)?.color }}>
-            {payrollOptions.map((option) => <option className="font-semibold" key={option.value} value={option.value} style={{ color: option.color }}>{option.label}</option>)}
-          </select></label>
+          <div className="flex gap-2">
+            <label className='flex-1'>Select Software<select name="software" value={form.software} onChange={handleChange} style={{ color: form.software ? getSoftwareColor(form.software) : undefined }}><option value="">Select software</option>{softwareOptions.map((option) => <option className='font-semibold' key={option} value={option} style={{ color: getSoftwareColor(option) }}>{option}</option>)}</select>{mode === 'create' && clientSoftwareByName.get(form.title.trim().toLocaleLowerCase())?.size > 1 && <small className="field-hint">Multiple software values found. Choose one to standardise this client.</small>}</label>
+            <label className='flex-1'>Payroll<select name="payroll" value={form.payroll} disabled={isSubmitting} onChange={handlePayrollChange} style={{ color: payrollOptions.find((option) => option.value === form.payroll)?.color }}>
+              {payrollOptions.map((option) => <option className="font-semibold" key={option.value} value={option.value} style={{ color: option.color }}>{option.label}</option>)}
+            </select></label>
+          </div>
+
           <div className="form-field">
             <span>Property</span>
             <div className="flex gap-3">
@@ -147,11 +151,14 @@ export default function TaskModal({ isOpen, onClose, onSubmit, initialValues, cl
             <button className="button-secondary property-add-button" type="button" disabled={isSubmitting || !propertyAddress.trim()} onClick={addProperty}>Add property</button>
             {form.properties.length > 0 && <ul className="property-list">{form.properties.map((property, index) => <li key={`${property.address}-${index}`}><span><strong>{property.address}</strong><em>{property.type}</em></span><button type="button" aria-label={`Remove ${property.address}`} disabled={isSubmitting} onClick={() => removeProperty(index)}>×</button></li>)}</ul>}
           </div>
-          <div className="form-field">
-            <span>Motor Vehicle</span>
-            <TagInput value={form.motorVehicles} disabled={isSubmitting} placeholder="Enter a motor vehicle and press Enter" onChange={(motorVehicles) => setForm((previous) => ({ ...previous, motorVehicles }))} />
+          <div className="flex gap-2">
+            <div className="flex-1 form-field">
+              <span>Motor Vehicle</span>
+              <TagInput value={form.motorVehicles} disabled={isSubmitting} placeholder="Enter a motor vehicle and press Enter" onChange={(motorVehicles) => setForm((previous) => ({ ...previous, motorVehicles }))} />
+            </div>
+            <label className='flex-1'>Assign Date<DatePickerInput name="assignDate" ariaLabel="Assign date" value={form.assignDate} onChange={(assignDate) => setForm((previous) => ({ ...previous, assignDate }))} /></label>
           </div>
-          <label>Assign Date<DatePickerInput name="assignDate" ariaLabel="Assign date" value={form.assignDate} onChange={(assignDate) => setForm((previous) => ({ ...previous, assignDate }))} /></label>
+          
           <label>Note<textarea name="notes" value={form.notes} onChange={handleChange} rows="6" /></label>
           <label>Status<select name="status" value={form.status} onChange={handleChange}>{STATUS_OPTIONS.map((option) => <option key={option} value={option}>{getStatusLabel(option)}</option>)}</select></label>
           <div className="modal-actions">

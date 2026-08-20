@@ -1,4 +1,4 @@
-import { getDefaultTaskSortMode, sortTasksForTab, TASK_SORT_MODES } from './taskSorting';
+import { getDefaultTaskSortMode, getNextAssignDateSortMode, sortTasksForTab, TASK_SORT_MODES } from './taskSorting';
 
 describe('task sorting', () => {
   const tasks = [
@@ -33,6 +33,12 @@ describe('task sorting', () => {
     ]);
   });
 
+  it('toggles the assign-date sort direction from the column action', () => {
+    expect(getNextAssignDateSortMode(TASK_SORT_MODES.STATUS)).toBe(TASK_SORT_MODES.DATE_ASC);
+    expect(getNextAssignDateSortMode(TASK_SORT_MODES.DATE_ASC)).toBe(TASK_SORT_MODES.DATE_DESC);
+    expect(getNextAssignDateSortMode(TASK_SORT_MODES.DATE_DESC)).toBe(TASK_SORT_MODES.DATE_ASC);
+  });
+
   it('sorts completed tasks by the latest completed status change by default', () => {
     const completedTasks = [
       { _id: 'older', status: 'Lodged/Completed', completionDate: '2026-06-10', statusHistory: [{ status: 'Lodged/Completed', changedAt: '2026-06-10T09:00:00' }] },
@@ -41,6 +47,17 @@ describe('task sorting', () => {
 
     expect(getDefaultTaskSortMode('completed')).toBe(TASK_SORT_MODES.DATE_DESC);
     expect(sortTasksForTab(completedTasks, 'completed').map((task) => task._id)).toEqual(['newer', 'older']);
+  });
+
+  it('sorts Sent Report to Client tasks by their latest Sent Report status change', () => {
+    const sentReportTasks = [
+      { _id: 'older', status: 'Sent Report to client', assignDate: '2026-06-20', statusHistory: [{ status: 'Sent Report to client', changedAt: '2026-06-11T09:00:00' }] },
+      { _id: 'newer', status: 'Sent Report to client', assignDate: '2026-06-10', statusHistory: [{ status: 'Sent Report to client', changedAt: '2026-06-15T09:00:00' }, { status: 'Sent Report to client', changedAt: '2026-06-16T09:00:00' }] },
+      { _id: 'not-sent', status: 'Out To Sign', assignDate: '2026-06-01', statusHistory: [{ status: 'Out To Sign', changedAt: '2026-06-18T09:00:00' }] },
+    ];
+
+    expect(getDefaultTaskSortMode('out-to-sign')).toBe(TASK_SORT_MODES.SENT_REPORT_DATE_DESC);
+    expect(sortTasksForTab(sentReportTasks, 'out-to-sign').map((task) => task._id)).toEqual(['newer', 'older', 'not-sent']);
   });
 
   it('keeps automatic assignments at the end of the In Progress group', () => {

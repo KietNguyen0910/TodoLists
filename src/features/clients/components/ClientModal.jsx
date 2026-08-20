@@ -81,25 +81,32 @@ export default function ClientModal({ isOpen, client, onClose, onSubmit, isSubmi
         </div>
         <form className="modal-form" onSubmit={handleSubmit}>
           <label>Client<input value={form.title} disabled={isSubmitting} onChange={(event) => updateField('title', event.target.value)} required /></label>
-          <label>Select Software
+          <div className="flex gap-2">
+
+          <label className='flex-1'>Select Software
             <select value={form.software} disabled={isSubmitting} onChange={(event) => updateField('software', event.target.value)} style={{ color: form.software ? getSoftwareColor(form.software) : undefined }}>
               <option value="">{client.hasMixedSoftware ? 'Multiple values - choose to update' : 'Select software'}</option>
               {SOFTWARE_OPTIONS.map((option) => <option className="font-semibold" key={option} value={option} style={{ color: getSoftwareColor(option) }}>{option}</option>)}
             </select>
           </label>
-          <label>Payroll
+          <label className='flex-1'>Payroll
             <select value={form.payroll} disabled={isSubmitting} onChange={(event) => updateField('payroll', event.target.value)} style={{ color: PAYROLL_OPTIONS.find((option) => option.value === form.payroll)?.color }}>
               {PAYROLL_OPTIONS.map((option) => <option className="font-semibold" key={option.value} value={option.value} style={{ color: option.color }}>{option.label}</option>)}
             </select>
             {client.hasMixedPayroll && form.payroll === '' && <small className="field-hint">Multiple values - choose to update</small>}
           </label>
+          </div>
+
           <div className="form-field">
             <span>Property</span>
+            <div className="flex gap-2">
             <input value={propertyAddress} placeholder="Enter property address" disabled={isSubmitting} onChange={(event) => setPropertyAddress(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); addProperty(); } }} />
-            <div className="radio-group" role="radiogroup" aria-label="Property type">
+            <div className="flex gap-2 !flex-nowrap radio-group" role="radiogroup" aria-label="Property type">
               <label className={`radio-option ${propertyType === 'Primary' ? 'is-selected' : ''}`}><input type="radio" name="clientPropertyType" checked={propertyType === 'Primary'} disabled={isSubmitting} onChange={() => setPropertyType('Primary')} /> Primary</label>
               <label className={`radio-option ${propertyType === 'Investment' ? 'is-selected' : ''}`}><input type="radio" name="clientPropertyType" checked={propertyType === 'Investment'} disabled={isSubmitting} onChange={() => setPropertyType('Investment')} /> Investment</label>
             </div>
+            </div>
+
             <button className="button-secondary property-add-button" type="button" disabled={isSubmitting || !propertyAddress.trim()} onClick={addProperty}>Add property</button>
             {form.properties.length > 0 && <ul className="property-list">{form.properties.map((property, index) => <li key={`${property.address}-${index}`}><span><strong>{property.address}</strong><em>{property.type}</em></span><button type="button" aria-label={`Remove ${property.address}`} disabled={isSubmitting} onClick={() => removeProperty(index)}>&times;</button></li>)}</ul>}
           </div>

@@ -3,8 +3,8 @@ export const TASK_TABS = [
   { id: 'todo', label: 'In Progress', title: 'In Progress', statuses: ['In Progress', 'On hold'] },
   { id: 'waiting-information-request', label: 'Waiting Information Request', title: 'Waiting Information Request', statuses: ['Waiting client', 'Sent query for Manager'] },
   { id: 'waiting-review', label: 'Waiting for Final Review', title: 'Waiting for Final Review', statuses: ['Waiting for final Review', 'Waiting for review'] },
-  { id: 'completed', label: 'Completed', title: 'Completed Tasks', statuses: ['Lodged/Completed'] },
   { id: 'out-to-sign', label: 'Sent Report to Client', title: 'Sent Report to Client', statuses: ['Out To Sign', 'Sent Report to client'] },
+  { id: 'completed', label: 'Lodged/Completed', title: 'Lodged/Completed', statuses: ['Lodged/Completed'] },
   { id: 'singed', label: 'Signed', title: 'Signed', statuses: ['Singed'] },
 ];
 

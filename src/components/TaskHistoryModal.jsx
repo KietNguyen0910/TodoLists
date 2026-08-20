@@ -29,10 +29,29 @@ function getChangeLabels(changes = []) {
   return changes.map((change) => change.label || change.field).filter(Boolean).join(', ');
 }
 
-export default function TaskHistoryModal({ isOpen, task, onClose }) {
+export function getHistoryLogTitle(log) {
+  const changeLabels = getChangeLabels(log?.changes);
+  return `${ACTION_LABELS[log?.action] || 'Updated task'}${changeLabels ? ` (${changeLabels})` : ''}`;
+}
+
+function isDeletedAuditLog(log) {
+  if (log.action === 'deleted') return true;
+
+  return (Array.isArray(log.changes) ? log.changes : []).some((change) => (
+    ['deleted', 'isDeleted'].includes(change.field) && Boolean(change.to ?? change.next)
+  ));
+}
+
+export function getVisibleHistoryLogs(auditLogs) {
+  return (Array.isArray(auditLogs) ? auditLogs : [])
+    .filter((log) => !isDeletedAuditLog(log))
+    .sort((left, right) => new Date(right.changedAt) - new Date(left.changedAt));
+}
+
+export default function TaskHistoryModal({ isOpen, task, onClose, onAddToNote }) {
   if (!isOpen) return null;
 
-  const logs = [...(task?.auditLogs || [])].sort((left, right) => new Date(right.changedAt) - new Date(left.changedAt));
+  const logs = getVisibleHistoryLogs(task?.auditLogs);
   const handleOverlayClick = (event) => {
     if (event.target === event.currentTarget) onClose();
   };
@@ -56,10 +75,23 @@ export default function TaskHistoryModal({ isOpen, task, onClose }) {
               {logs.map((log, index) => (
                 <li className="history-item" key={`${log.changedAt}-${log.action}-${index}`}>
                   <details className="history-details">
-                    <summary className="history-summary">
+                    <summary
+                      className="history-summary history-note-action"
+                      title="Double-click to add this title to Note"
+                      aria-keyshortcuts="Alt+Enter"
+                      onDoubleClick={(event) => {
+                        event.preventDefault();
+                        onAddToNote?.(task, getHistoryLogTitle(log));
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.altKey && event.key === 'Enter') {
+                          event.preventDefault();
+                          onAddToNote?.(task, getHistoryLogTitle(log));
+                        }
+                      }}
+                    >
                       <span className="history-summary-title">
-                        {ACTION_LABELS[log.action] || 'Updated task'}
-                        {log.changes?.length > 0 && <span> ({getChangeLabels(log.changes)})</span>}
+                        {getHistoryLogTitle(log)}
                       </span>
                       <span className="history-summary-meta">{formatDateTime(log.changedAt)}</span>
                     </summary>

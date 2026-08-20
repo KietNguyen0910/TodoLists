@@ -16,15 +16,16 @@ describe('task tab filtering', () => {
     expect(getTaskTabId('Sent Report to client')).toBe('out-to-sign');
   });
 
-  it('uses the requested sidebar labels for Sent Report to Client and Signed', () => {
+  it('orders Sent Report to Client before the renamed Lodged/Completed sidebar tab', () => {
     expect(getTaskTabId('Out To Sign')).toBe('out-to-sign');
     expect(getTaskTabId('Singed')).toBe('singed');
-    expect(TASK_TABS.slice(-3).map((tab) => tab.id)).toEqual(['completed', 'out-to-sign', 'singed']);
+    expect(TASK_TABS.slice(-3).map((tab) => tab.id)).toEqual(['out-to-sign', 'completed', 'singed']);
     expect(TASK_TABS.find((tab) => tab.id === 'out-to-sign')).toMatchObject({
       label: 'Sent Report to Client',
       title: 'Sent Report to Client',
       statuses: ['Out To Sign', 'Sent Report to client'],
     });
+    expect(TASK_TABS.find((tab) => tab.id === 'completed')).toMatchObject({ label: 'Lodged/Completed', title: 'Lodged/Completed' });
     expect(TASK_TABS.find((tab) => tab.id === 'singed')).toMatchObject({ label: 'Signed', title: 'Signed' });
   });
 

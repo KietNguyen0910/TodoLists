@@ -300,7 +300,7 @@ select:disabled {
 }
 
 .modal-card {
-  width: min(1020px, calc(100% - 32px));
+  width: min(1200px, calc(100% - 32px));
   background: white;
   border-radius: 16px;
   padding: 16px;
@@ -921,6 +921,16 @@ h1 {
   color: #0f172a;
   cursor: pointer;
   justify-content: space-between;
+  transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease, transform 160ms ease;
+}
+
+@media (hover: hover) {
+  .sidebar-button:not(.active):hover {
+    background: #eef2ff;
+    border-color: #c7d2fe;
+    color: #3730a3;
+    transform: translateX(2px);
+  }
 }
 
 .sidebar-button.active {
@@ -1283,6 +1293,38 @@ h1 {
   white-space: nowrap;
 }
 
+.task-table-sort-header {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.task-table-sort-button {
+  display: inline-grid;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: #475569;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.task-table-sort-button:hover {
+  border-color: #94a3b8;
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.task-table-sort-button:focus-visible {
+  outline: 2px solid #4f46e5;
+  outline-offset: 2px;
+}
+
 .task-table .task-status-column {
   min-width: 330px;
   white-space: nowrap;
@@ -1619,6 +1661,16 @@ h1 {
   padding: 12px;
   cursor: pointer;
   list-style: none;
+}
+
+.history-note-action {
+  cursor: copy;
+}
+
+@media (hover: hover) {
+  .history-note-action:hover {
+    background: #f8fafc;
+  }
 }
 
 .history-summary::-webkit-details-marker {
